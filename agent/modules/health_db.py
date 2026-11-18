@@ -10,7 +10,7 @@
 - 旧版存在 health_profile.weight_kg 时，迁移为一条体重记录；
 - 迁移是否已执行由 schema_migrations 的固定键 legacy_weight_v1 判断，
   因此即使用户删除了迁移记录，重启后也不会重新插入；
-- 旧表 health_metrics 保留不删，既有数据不丢失。
+- health_metrics 为历史旧表，本次补充读写方法，既有数据不丢失。
 """
 
 import sqlite3
@@ -31,18 +31,20 @@ LEGACY_NOTE = "由旧版本迁移"
 class HealthDB:
     """健康档案与体重记录的存取。"""
 
-    def __init__(self, db_path=None):
+    def __init__(self, db_path=None, check_same_thread=True):
         """创建数据库连接。
 
         参数：
             db_path: 数据库文件路径；传 ":memory:" 使用内存库（测试推荐）。
                      不传时使用项目根目录下的 data/health.db。
+            check_same_thread: 是否只允许创建连接的线程使用。Web 服务由
+                     多个请求线程共用同一连接时需传 False，并由调用方加锁串行访问。
         """
         self.is_memory = db_path == ":memory:"
         path = db_path if db_path is not None else DEFAULT_DB_PATH
         if not self.is_memory:
             Path(path).parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(path)
+        self._conn = sqlite3.connect(path, check_same_thread=check_same_thread)
         self._conn.row_factory = sqlite3.Row
 
     def close(self):
@@ -231,3 +233,36 @@ class HealthDB:
         )
         self._conn.commit()
         return cursor.rowcount > 0
+    def add_metric(self, metric, value, recorded_at=None):
+        """新增一条健康指标记录，返回新记录编号。
+
+        参数：
+            metric: 指标类型，由调用方校验后传入；
+            value: 指标数值；
+            recorded_at: 记录时间，缺省为当前时间。
+        """
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        recorded_at = recorded_at or now
+        cursor = self._conn.execute(
+            "INSERT INTO health_metrics (metric, value, recorded_at) "
+            "VALUES (?, ?, ?)",
+            (metric, value, recorded_at),
+        )
+        self._conn.commit()
+        return cursor.lastrowid
+
+    def list_metrics(self, metric=None, limit=20):
+        """按记录时间倒序返回健康指标，可按类型过滤。"""
+        if metric:
+            rows = self._conn.execute(
+                "SELECT id, metric, value, recorded_at FROM health_metrics "
+                "WHERE metric = ? ORDER BY recorded_at DESC, id DESC LIMIT ?",
+                (metric, limit),
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT id, metric, value, recorded_at FROM health_metrics "
+                "ORDER BY recorded_at DESC, id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]

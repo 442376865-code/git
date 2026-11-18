@@ -21,18 +21,20 @@ DEFAULT_DB_PATH = Path(__file__).resolve().parents[2] / "data" / "medication.db"
 class MedicationDB:
     """用药计划与服药记录的存取。"""
 
-    def __init__(self, db_path=None):
+    def __init__(self, db_path=None, check_same_thread=True):
         """创建数据库连接并启用外键。
 
         参数：
             db_path: 数据库文件路径；传 ":memory:" 使用内存库（测试推荐）。
                      不传时使用项目根目录下的 data/medication.db。
+            check_same_thread: 是否只允许创建连接的线程使用。Web 服务由
+                     多个请求线程共用同一连接时需传 False，并由调用方加锁串行访问。
         """
         self.is_memory = db_path == ":memory:"
         path = db_path if db_path is not None else DEFAULT_DB_PATH
         if not self.is_memory:
             Path(path).parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(path)
+        self._conn = sqlite3.connect(path, check_same_thread=check_same_thread)
         self._conn.row_factory = sqlite3.Row
         # 每个连接都要单独启用外键
         self._conn.execute("PRAGMA foreign_keys = ON")
@@ -163,6 +165,18 @@ class MedicationDB:
             (limit,),
         ).fetchall()
         return [dict(row) for row in rows]
+
+    def get_log(self, log_id):
+        """按编号读取单条服药记录并带出药名；不存在时返回 None。"""
+        row = self._conn.execute(
+            "SELECT l.id, l.plan_id, p.medication_name, l.taken_at, l.note, l.created_at "
+            "FROM medication_logs l "
+            "JOIN medication_plans p ON p.id = l.plan_id "
+            "WHERE l.id = ?",
+            (log_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
     def delete_plan(self, plan_id):
         """删除指定用药计划及其关联服药记录，返回是否删除成功。
 

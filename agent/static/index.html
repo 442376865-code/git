@@ -5,24 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>医知有据</title>
   <style>
+    :root {
+      --brand: #2563eb;
+      --brand-dark: #1d4ed8;
+      --ink: #1f2937;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --bg: #eef2f7;
+      --danger: #b91c1c;
+    }
+
     * { box-sizing: border-box; }
+
+    html, body {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
 
     body {
       margin: 0;
       min-height: 100vh;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
       padding: 24px 16px;
-      background: #eef2f7;
-      color: #1f2937;
+      background: var(--bg);
+      color: var(--ink);
       font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
     }
 
     .app {
       width: 100%;
-      max-width: 760px;
-      height: min(720px, calc(100vh - 48px));
+      max-width: 900px;
+      height: min(820px, calc(100vh - 48px));
+      min-height: 420px;
       display: flex;
       flex-direction: column;
       background: #ffffff;
@@ -31,73 +47,123 @@
       overflow: hidden;
     }
 
+    /* 顶部：品牌与四个模块 Tab */
     header {
-      padding: 18px 22px 14px;
-      border-bottom: 1px solid #e5e7eb;
+      flex: none;
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid var(--line);
       background: linear-gradient(135deg, #1d4ed8, #2563eb);
       color: #ffffff;
       display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
+      flex-direction: column;
       gap: 12px;
     }
+
+    .brand { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 
     h1 { margin: 0; font-size: 20px; letter-spacing: 1px; }
 
     .subtitle {
-      margin: 6px 0 0;
+      margin: 0;
       font-size: 13px;
       color: rgba(255, 255, 255, 0.85);
     }
 
-    .header-actions {
+    .tabs {
       display: flex;
-      flex: none;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: flex-end;
+      gap: 6px;
+      min-width: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 2px;
     }
 
-    .new-session,
-    .clear-session {
+    .tabs::-webkit-scrollbar { display: none; }
+
+    .tab {
       flex: none;
-      padding: 7px 12px;
-      border: 1px solid rgba(255, 255, 255, 0.5);
-      border-radius: 8px;
+      padding: 8px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      border-radius: 999px;
       background: rgba(255, 255, 255, 0.12);
       color: #ffffff;
+      font-size: 14px;
+      font-family: inherit;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .tab:hover { background: rgba(255, 255, 255, 0.24); }
+
+    /* 当前选中 Tab：白底蓝字，视觉状态明确 */
+    .tab[aria-selected="true"] {
+      background: #ffffff;
+      border-color: #ffffff;
+      color: var(--brand-dark);
+      font-weight: 600;
+    }
+
+    .workspace { flex: 1; min-height: 0; display: flex; }
+
+    .panel {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel[hidden] { display: none; }
+
+    /* 面板顶部工具条：说明文案 + 操作按钮 */
+    .panel-toolbar {
+      flex: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 10px 18px;
+      border-bottom: 1px solid #f1f5f9;
+      background: #ffffff;
+    }
+
+    .panel-hint {
+      margin: 0;
       font-size: 13px;
+      color: var(--muted);
+      min-width: 0;
+    }
+
+    .panel-actions { display: flex; gap: 8px; flex: none; }
+
+    .panel-actions button {
+      padding: 6px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #334155;
+      font-size: 13px;
+      font-family: inherit;
       white-space: nowrap;
       cursor: pointer;
     }
 
-    .new-session:hover,
-    .clear-session:hover { background: rgba(255, 255, 255, 0.22); }
+    .panel-actions button:hover { background: #f1f5f9; }
 
-    .clear-session {
-      border-color: rgba(254, 202, 202, 0.8);
-      background: rgba(185, 28, 28, 0.35);
+    .panel-actions .clear-session {
+      border-color: #fecaca;
+      background: #fef2f2;
+      color: var(--danger);
     }
 
-    /* 窄屏时头部改为纵向，两个按钮等宽排列，保证 312px 下不重叠 */
-    @media (max-width: 420px) {
-      header {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .header-actions { width: 100%; }
-
-      .new-session,
-      .clear-session {
-        flex: 1;
-        padding: 8px 10px;
-        text-align: center;
-      }
-    }
+    .panel-actions .clear-session:hover { background: #fee2e2; }
 
     .messages {
       flex: 1;
+      min-height: 0;
       overflow-y: auto;
       padding: 20px 22px;
       display: flex;
@@ -126,7 +192,7 @@
 
     .bubble.user {
       align-self: flex-end;
-      background: #2563eb;
+      background: var(--brand);
       color: #ffffff;
       border-bottom-right-radius: 4px;
     }
@@ -134,31 +200,41 @@
     .bubble.assistant {
       align-self: flex-start;
       background: #ffffff;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--line);
       border-bottom-left-radius: 4px;
     }
 
-    .bubble.loading { color: #64748b; font-style: italic; }
+    .bubble.loading { color: var(--muted); font-style: italic; }
+
+    /* 本次命中的业务模块标签 */
+    .bubble-meta {
+      margin-top: 6px;
+      font-size: 12px;
+      color: #94a3b8;
+    }
 
     .error {
+      flex: none;
       margin: 0;
-      padding: 10px 22px;
+      padding: 10px 18px;
       background: #fef2f2;
       border-top: 1px solid #fecaca;
-      color: #b91c1c;
+      color: var(--danger);
       font-size: 13px;
     }
 
     .composer {
+      flex: none;
       display: flex;
       gap: 10px;
       padding: 14px 16px;
-      border-top: 1px solid #e5e7eb;
+      border-top: 1px solid var(--line);
       background: #ffffff;
     }
 
     textarea {
       flex: 1;
+      min-width: 0;
       resize: none;
       padding: 11px 13px;
       border: 1px solid #cbd5e1;
@@ -170,65 +246,803 @@
     }
 
     textarea:focus {
-      border-color: #2563eb;
+      border-color: var(--brand);
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
     }
 
     button.submit {
       flex: none;
-      padding: 0 22px;
+      padding: 0 20px;
       border: none;
       border-radius: 10px;
-      background: #2563eb;
+      background: var(--brand);
       color: #ffffff;
       font-size: 15px;
+      font-family: inherit;
       cursor: pointer;
     }
 
-    button.submit:hover { background: #1d4ed8; }
+    button.submit:hover { background: var(--brand-dark); }
 
     button.submit:disabled {
       background: #93c5fd;
       cursor: not-allowed;
     }
 
-    .disclaimer {
+    /* 其余三个面板的占位结构 */
+    .placeholder {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 20px 22px 24px;
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .placeholder-card {
+      background: #ffffff;
+      border: 1px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 16px 18px;
+    }
+
+    .placeholder-card h2 {
+      margin: 0 0 6px;
+      font-size: 15px;
+      color: #334155;
+    }
+
+    .placeholder-card p {
       margin: 0;
-      padding: 8px 22px 12px;
+      font-size: 13px;
+      line-height: 1.8;
+      color: var(--muted);
+    }
+
+    .placeholder-list {
+      margin: 8px 0 0;
+      padding-left: 18px;
+      font-size: 13px;
+      line-height: 1.9;
+      color: #94a3b8;
+    }
+
+    /* 可滚动的业务面板容器（健康、用药、导航共用） */
+    .panel-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 16px 18px 20px;
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .card {
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 16px 16px;
+    }
+
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .card-title { margin: 0; font-size: 15px; color: #334155; }
+
+    .card-sub { font-size: 12px; color: #94a3b8; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 12px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 0;
+      font-size: 13px;
+      color: #475569;
+    }
+
+    .field-wide { grid-column: 1 / -1; }
+
+    .field-inline { flex-direction: row; align-items: center; gap: 8px; }
+
+    .field-inline select { width: auto; min-width: 120px; }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="date"],
+    input[type="datetime-local"],
+    select {
+      width: 100%;
+      min-width: 0;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      color: var(--ink);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .btn {
+      padding: 8px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #334155;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    .btn:hover { background: #f1f5f9; }
+
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .btn-primary {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #ffffff;
+    }
+
+    .btn-primary:hover { background: var(--brand-dark); }
+
+    .btn-danger {
+      border-color: #fecaca;
+      background: #fef2f2;
+      color: var(--danger);
+    }
+
+    .btn-danger:hover { background: #fee2e2; }
+
+    .btn-small { padding: 5px 10px; font-size: 12px; }
+
+    /* 档案只读展示 */
+    .profile-view {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 12px;
+      font-size: 14px;
+    }
+
+    .kv { display: flex; gap: 8px; min-width: 0; }
+
+    .kv dt { flex: none; color: #94a3b8; }
+
+    .kv dd { margin: 0; color: var(--ink); word-break: break-word; }
+
+    .kv-wide { grid-column: 1 / -1; }
+
+    /* 记录列表 */
+    .record-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .record-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid #f1f5f9;
+      border-radius: 10px;
+      background: #ffffff;
+      font-size: 14px;
+    }
+
+    .record-main { min-width: 0; word-break: break-word; }
+
+    .record-meta { margin-top: 2px; font-size: 12px; color: #94a3b8; }
+
+    .record-empty,
+    .loading-text { padding: 6px 2px; font-size: 13px; color: #94a3b8; }
+
+    .hint-inline { margin: 6px 0 0; font-size: 12px; color: #94a3b8; }
+
+    .filter-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px dashed #e2e8f0;
+    }
+
+    /* 计划状态徽标 */
+    .badge {
+      flex: none;
+      display: inline-block;
+      padding: 2px 8px;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .badge-active {
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+      color: #047857;
+    }
+
+    .badge-stopped {
+      background: #f1f5f9;
+      border-color: #e2e8f0;
+      color: #64748b;
+    }
+
+    .record-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .record-actions {
+      display: flex;
+      flex: none;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .detail-line { font-size: 13px; line-height: 1.8; color: #475569; }
+
+    .detail-line .label { color: #94a3b8; }
+
+    .safety-note {
+      margin: 0;
+      padding: 10px 12px;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      background: #fffbeb;
+      color: #92400e;
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    .notice-bar {
+      margin: 10px 0 0;
+      padding: 8px 10px;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      background: #eff6ff;
+      color: #1e40af;
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    .card-head-spaced { margin-top: 14px; }
+
+    /* 医疗导航：高德结果来源标签、地点详情块与搜索状态 */
+    .badge-source {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      color: #1d4ed8;
+    }
+
+    .place-detail {
+      margin-top: 8px;
+      padding: 10px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #f8fafc;
+    }
+
+    .place-detail[hidden] { display: none; }
+
+    .poi-note { margin: 0 0 10px; }
+
+    .poi-status-error { color: var(--danger); }
+
+    /* 筛选行里的文本输入跟随字段宽度，窄屏时不撑破容器 */
+    .filter-row .field-inline input {
+      width: auto;
+      min-width: 140px;
+      max-width: 100%;
+    }
+
+    .disclaimer {
+      flex: none;
+      margin: 0;
+      padding: 9px 20px 11px;
       border-top: 1px solid #f1f5f9;
       color: #94a3b8;
       font-size: 12px;
       text-align: center;
+      line-height: 1.6;
+    }
+
+    /* 窄屏：品牌与 Tab 纵向排列，Tab 横向滚动不撑破页面 */
+    @media (max-width: 640px) {
+      body { padding: 12px 10px; }
+      .app { height: calc(100vh - 24px); border-radius: 12px; }
+      header { padding: 13px 14px 10px; gap: 10px; }
+      h1 { font-size: 18px; }
+      .subtitle { font-size: 12px; }
+      .tab { padding: 7px 12px; font-size: 13px; }
+      .panel-toolbar { padding: 9px 14px; }
+      .panel-hint { font-size: 12px; }
+      .messages { padding: 16px 14px; }
+      .placeholder { padding: 16px 14px 20px; }
+      .composer { padding: 10px 12px; }
+      .disclaimer { padding: 8px 14px 10px; }
+      .panel-scroll { padding: 14px 12px 18px; gap: 12px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .profile-view { grid-template-columns: 1fr; }
+      .record-item { align-items: flex-start; flex-wrap: wrap; }
+    }
+
+    @media (max-width: 380px) {
+      .panel-toolbar { align-items: stretch; }
+      .panel-actions { width: 100%; }
+      .panel-actions button { flex: 1; padding: 7px 8px; text-align: center; }
+      button.submit { padding: 0 14px; font-size: 14px; }
+      .bubble { max-width: 90%; }
     }
   </style>
-</head>
 <body>
   <main class="app">
     <header>
-      <div>
+      <div class="brand">
         <h1>医知有据</h1>
         <p class="subtitle">医学知识、健康管理、用药与就医地点助手</p>
       </div>
-      <div class="header-actions">
-        <button id="clear-session" class="clear-session" type="button">清空对话</button>
-        <button id="new-session" class="new-session" type="button">新会话</button>
-      </div>
+      <nav class="tabs" role="tablist" aria-label="功能模块">
+        <button id="tab-knowledge" class="tab" type="button" role="tab"
+                aria-selected="true" aria-controls="panel-knowledge">医学知识问答</button>
+        <button id="tab-health" class="tab" type="button" role="tab"
+                aria-selected="false" aria-controls="panel-health">健康管理</button>
+        <button id="tab-medication" class="tab" type="button" role="tab"
+                aria-selected="false" aria-controls="panel-medication">用药管理</button>
+        <button id="tab-navigation" class="tab" type="button" role="tab"
+                aria-selected="false" aria-controls="panel-navigation">医疗导航</button>
+      </nav>
     </header>
 
-    <section id="messages" class="messages" aria-live="polite">
-      <p class="empty-hint">输入问题开始对话<br />例如：什么是高血压？或：查看用药计划</p>
-    </section>
+    <div class="workspace">
+      <!-- 面板一：医学知识问答（完整可用） -->
+      <section id="panel-knowledge" class="panel" role="tabpanel"
+               aria-labelledby="tab-knowledge">
+        <div class="panel-toolbar">
+          <p class="panel-hint">基于本地知识库的医学常识问答，不能替代医生诊断。</p>
+          <div class="panel-actions">
+            <button id="clear-session" class="clear-session" type="button">清空对话</button>
+            <button id="new-session" type="button">新会话</button>
+          </div>
+        </div>
 
-    <p id="error" class="error" role="alert" hidden></p>
+        <section id="messages" class="messages" aria-live="polite">
+          <p class="empty-hint">输入问题开始对话<br />例如：什么是高血压？或：查看用药计划</p>
+        </section>
 
-    <form id="chat-form" class="composer">
-      <textarea id="input" rows="2" maxlength="4000" placeholder="输入问题，Ctrl + Enter 发送"></textarea>
-      <button id="send" class="submit" type="submit">发送</button>
-    </form>
+        <p id="error" class="error" role="alert" hidden></p>
 
-    <p class="disclaimer">本助手仅提供健康信息参考，不能替代医生诊疗；紧急情况请立即拨打 120。</p>
+        <form id="chat-form" class="composer">
+          <textarea id="input" rows="2" maxlength="4000"
+                    placeholder="输入问题，Ctrl + Enter 发送"></textarea>
+          <button id="send" class="submit" type="submit">发送</button>
+        </form>
+      </section>
+
+      <!-- 面板二：健康管理（档案 / 体重 / 指标） -->
+      <section id="panel-health" class="panel" role="tabpanel"
+               aria-labelledby="tab-health" hidden>
+        <div class="panel-toolbar">
+          <p class="panel-hint">记录健康档案、体重与常用指标，数据仅保存在本机。</p>
+          <div class="panel-actions">
+            <button id="health-refresh" type="button">刷新</button>
+          </div>
+        </div>
+
+        <p id="health-error" class="error" role="alert" hidden></p>
+
+        <div class="panel-scroll">
+          <!-- 健康档案 -->
+          <section class="card">
+            <div class="card-head">
+              <h2 class="card-title">健康档案</h2>
+              <button id="profile-edit" class="btn btn-small" type="button">编辑</button>
+            </div>
+
+            <p id="profile-empty" class="record-empty" hidden>尚未建立健康档案。</p>
+
+            <dl id="profile-view" class="profile-view" hidden>
+              <div class="kv"><dt>姓名</dt><dd id="view-name">—</dd></div>
+              <div class="kv"><dt>性别</dt><dd id="view-gender">—</dd></div>
+              <div class="kv"><dt>出生日期</dt><dd id="view-birth">—</dd></div>
+              <div class="kv"><dt>身高</dt><dd id="view-height">—</dd></div>
+              <div class="kv kv-wide"><dt>更新时间</dt><dd id="view-updated">—</dd></div>
+            </dl>
+
+            <form id="profile-form" class="profile-form" hidden>
+              <div class="form-grid">
+                <label class="field">姓名
+                  <input id="profile-name" type="text" maxlength="20" autocomplete="off" />
+                </label>
+                <label class="field">性别
+                  <select id="profile-gender">
+                    <option value="">不填写</option>
+                    <option value="男">男</option>
+                    <option value="女">女</option>
+                  </select>
+                </label>
+                <label class="field">出生日期
+                  <input id="profile-birth" type="date" />
+                </label>
+                <label class="field">身高（cm）
+                  <input id="profile-height" type="number" min="100" max="250" step="0.1" />
+                </label>
+              </div>
+              <div class="form-actions">
+                <button id="profile-save" class="btn btn-primary" type="submit" disabled>保存</button>
+                <button id="profile-cancel" class="btn" type="button">取消</button>
+              </div>
+              <p class="hint-inline">只提交已填写的字段；姓名 1–20 字，身高 100–250 cm，出生日期不能晚于今天。</p>
+            </form>
+          </section>
+
+          <!-- 体重记录 -->
+          <section class="card">
+            <div class="card-head">
+              <h2 class="card-title">体重记录</h2>
+              <span class="card-sub">20–300 kg</span>
+            </div>
+
+            <form id="weight-form" novalidate>
+              <div class="form-grid">
+                <label class="field">体重（kg）
+                  <input id="weight-value" type="number" min="20" max="300" step="0.1" />
+                </label>
+                <label class="field">记录日期
+                  <input id="weight-date" type="date" />
+                </label>
+                <label class="field field-wide">备注（选填，最多 200 字）
+                  <input id="weight-note" type="text" maxlength="200" autocomplete="off" />
+                </label>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-primary" type="submit">保存体重</button>
+              </div>
+            </form>
+
+            <div id="weight-list" class="record-list">
+              <p class="loading-text">加载中…</p>
+            </div>
+          </section>
+
+          <!-- 健康指标 -->
+          <section class="card">
+            <div class="card-head">
+              <h2 class="card-title">健康指标</h2>
+              <span class="card-sub">仅记录，不做任何判断</span>
+            </div>
+
+            <form id="metric-form" novalidate>
+              <div class="form-grid">
+                <label class="field">指标类型
+                  <select id="metric-type">
+                    <option value="systolic_bp">收缩压</option>
+                    <option value="diastolic_bp">舒张压</option>
+                    <option value="blood_glucose">血糖</option>
+                    <option value="heart_rate">心率</option>
+                    <option value="temperature">体温</option>
+                    <option value="spo2">血氧</option>
+                  </select>
+                </label>
+                <label class="field" id="metric-value-field"><span id="metric-value-label">数值（mmHg）</span>
+                  <input id="metric-value" type="number" step="0.1" />
+                </label>
+                <label class="field field-wide">记录时间
+                  <input id="metric-time" type="datetime-local" />
+                </label>
+              </div>
+              <p id="metric-range" class="hint-inline">收缩压范围 60～260 mmHg。</p>
+              <div class="form-actions">
+                <button class="btn btn-primary" type="submit">保存指标</button>
+              </div>
+            </form>
+
+            <div class="filter-row">
+              <label class="field field-inline">筛选
+                <select id="metric-filter">
+                  <option value="">全部类型</option>
+                  <option value="systolic_bp">收缩压</option>
+                  <option value="diastolic_bp">舒张压</option>
+                  <option value="blood_glucose">血糖</option>
+                  <option value="heart_rate">心率</option>
+                  <option value="temperature">体温</option>
+                  <option value="spo2">血氧</option>
+                </select>
+              </label>
+              <button id="metric-reload" class="btn btn-small" type="button">刷新记录</button>
+            </div>
+
+            <div id="metric-list" class="record-list">
+              <p class="loading-text">加载中…</p>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- 面板三：用药管理（计划与手动服药记录） -->
+      <section id="panel-medication" class="panel" role="tabpanel"
+               aria-labelledby="tab-medication" hidden>
+        <div class="panel-toolbar">
+          <p class="panel-hint">仅记录医嘱与手动服药情况，不提供任何用药建议或系统提醒。</p>
+          <div class="panel-actions">
+            <button id="medication-refresh" type="button">刷新</button>
+          </div>
+        </div>
+
+        <p id="medication-error" class="error" role="alert" hidden></p>
+
+        <div class="panel-scroll">
+          <p class="safety-note">
+            本模块仅用于手动记录用户自行填写的用药信息，不提供药物推荐、剂量调整、停药或漏服补服建议，也不提供自动提醒。
+          </p>
+
+          <!-- 新增用药计划 -->
+          <section class="card">
+            <div class="card-head">
+              <h2 class="card-title">新增用药计划</h2>
+              <span class="card-sub">药名与医嘱按医生提供的信息填写</span>
+            </div>
+
+            <form id="plan-form" novalidate>
+              <div class="form-grid">
+                <label class="field">药品名称（必填，最多 50 字）
+                  <input id="plan-name" type="text" maxlength="50" autocomplete="off" />
+                </label>
+                <label class="field">用药时间（可选，如 08:00, 20:00）
+                  <input id="plan-times" type="text" autocomplete="off"
+                         placeholder="08:00, 20:00；最多 6 个" />
+                </label>
+                <label class="field field-wide">医嘱用法（必填，最多 200 字）
+                  <input id="plan-instruction" type="text" maxlength="200" autocomplete="off"
+                         placeholder="请按医生提供的用法填写，系统不会生成医嘱" />
+                </label>
+                <label class="field">开始日期（可选）
+                  <input id="plan-start" type="date" />
+                </label>
+                <label class="field">结束日期（可选）
+                  <input id="plan-end" type="date" />
+                </label>
+                <label class="field field-wide">备注（可选，最多 200 字）
+                  <input id="plan-note" type="text" maxlength="200" autocomplete="off" />
+                </label>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-primary" type="submit">保存计划</button>
+              </div>
+            </form>
+          </section>
+
+          <!-- 用药计划列表 -->
+          <section class="card">
+            <div class="card-head">
+              <h2 class="card-title">用药计划</h2>
+              <span id="plan-count" class="card-sub"></span>
+            </div>
+
+            <div class="filter-row">
+              <label class="field field-inline">筛选
+                <select id="plan-filter">
+                  <option value="">全部</option>
+                  <option value="active">生效中</option>
+                  <option value="stopped">已停用</option>
+                </select>
+              </label>
+              <button id="plan-reload" class="btn btn-small" type="button">刷新计划</button>
+            </div>
+
+            <p id="plan-notice" class="notice-bar" hidden></p>
+
+            <div id="plan-list" class="record-list">
+              <p class="loading-text">加载中…</p>
+            </div>
+          </section>
+
+          <!-- 新增服药记录 -->
+          <section class="card">
+            <div class="card-head">
+              <h2 class="card-title">记录服药</h2>
+              <span class="card-sub">仅可选择生效中的计划</span>
+            </div>
+
+            <form id="log-form" novalidate>
+              <div class="form-grid">
+                <label class="field">用药计划
+                  <select id="log-plan"></select>
+                </label>
+                <label class="field">服药时间
+                  <input id="log-time" type="datetime-local" />
+                </label>
+                <label class="field field-wide">备注（可选，最多 200 字）
+                  <input id="log-note" type="text" maxlength="200" autocomplete="off" />
+                </label>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-primary" type="submit">保存服药记录</button>
+              </div>
+            </form>
+          </section>
+
+          <!-- 服药记录列表 -->
+          <section class="card">
+            <div class="card-head">
+              <h2 class="card-title">服药记录</h2>
+              <button id="log-reload" class="btn btn-small" type="button">刷新记录</button>
+            </div>
+
+            <p id="log-notice" class="notice-bar" hidden></p>
+
+            <div id="log-list" class="record-list">
+              <p class="loading-text">加载中…</p>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- 面板四：医疗导航（高德实时搜索 + 手动保存地点，两类数据完全隔离） -->
+      <section id="panel-navigation" class="panel" role="tabpanel"
+               aria-labelledby="tab-navigation" hidden>
+        <div class="panel-toolbar">
+          <p class="panel-hint">实时搜索由服务端查询高德地图，结果不保存；手动地点仅存本机。</p>
+          <div class="panel-actions">
+            <button id="nav-reload" type="button">刷新列表</button>
+          </div>
+        </div>
+
+        <p id="navigation-error" class="error" role="alert" hidden></p>
+
+        <div class="panel-scroll">
+          <!-- 区域一：高德实时搜索（只展示，不收藏、不落库） -->
+          <section class="card" id="poi-card">
+            <div class="card-head">
+              <h2 class="card-title">高德实时搜索</h2>
+              <span class="card-sub">实时结果，不保存</span>
+            </div>
+
+            <p class="notice-bar poi-note" id="poi-notice">
+              以下为高德地图实时搜索结果，仅供参考。结果不会自动保存到本地。
+            </p>
+
+            <form id="poi-form" novalidate>
+              <div class="form-grid">
+                <label class="field">城市（必填，最多 20 字）
+                  <input id="poi-city" type="text" maxlength="20" autocomplete="off"
+                         placeholder="例如：杭州市" />
+                </label>
+                <label class="field">地点关键词（必填，最多 80 字）
+                  <input id="poi-keywords" type="text" maxlength="80" autocomplete="off"
+                         placeholder="例如：医院、药房" />
+                </label>
+                <label class="field field-wide">地点分类（可选，按高德分类过滤）
+                  <select id="poi-category">
+                    <option value="">不限类型</option>
+                    <option value="090100">医院</option>
+                    <option value="090300">诊所</option>
+                    <option value="090600">药房 / 药店</option>
+                    <option value="090000">医疗保健服务</option>
+                  </select>
+                </label>
+              </div>
+              <div class="form-actions">
+                <button id="poi-submit" class="btn btn-primary" type="submit">搜索</button>
+              </div>
+              <p class="hint-inline">
+                搜索由服务端调用高德地图完成，浏览器不直接访问高德，也不使用定位。
+              </p>
+            </form>
+
+            <p id="poi-status" class="loading-text" hidden></p>
+            <div id="poi-list" class="record-list"></div>
+          </section>
+
+          <!-- 区域二：手动保存地点（增删改查，数据来自本机数据库） -->
+          <section class="card" id="place-card">
+            <div class="card-head">
+              <h2 class="card-title">我保存的地点</h2>
+              <span id="place-count" class="card-sub"></span>
+            </div>
+
+            <form id="place-form" novalidate>
+              <div class="form-grid">
+                <label class="field">地点名称（必填，最多 100 字）
+                  <input id="place-name" type="text" maxlength="100" autocomplete="off" />
+                </label>
+                <label class="field">类别（必选）
+                  <select id="place-category">
+                    <option value="">请选择类别</option>
+                    <option value="医院">医院</option>
+                    <option value="诊所">诊所</option>
+                    <option value="药房">药房</option>
+                    <option value="卫生院">卫生院</option>
+                    <option value="其他">其他</option>
+                  </select>
+                </label>
+                <label class="field field-wide">地址（选填，最多 200 字）
+                  <input id="place-address" type="text" maxlength="200" autocomplete="off" />
+                </label>
+                <label class="field">电话（选填，最多 50 字）
+                  <input id="place-phone" type="text" maxlength="50" autocomplete="off" />
+                </label>
+                <label class="field">备注（选填，最多 200 字）
+                  <input id="place-note" type="text" maxlength="200" autocomplete="off" />
+                </label>
+              </div>
+              <div class="form-actions">
+                <button id="place-submit" class="btn btn-primary" type="submit">保存地点</button>
+                <button id="place-cancel" class="btn" type="button" hidden>取消编辑</button>
+              </div>
+              <p id="place-form-hint" class="hint-inline">
+                编辑时留空的可选字段会被清空；地点只保存在本机数据库。
+              </p>
+            </form>
+
+            <div class="filter-row">
+              <label class="field field-inline">关键词
+                <input id="place-search" type="text" maxlength="100" autocomplete="off"
+                       placeholder="名称 / 类别 / 地址" />
+              </label>
+              <label class="field field-inline">类别
+                <select id="place-filter">
+                  <option value="">全部类别</option>
+                  <option value="医院">医院</option>
+                  <option value="诊所">诊所</option>
+                  <option value="药房">药房</option>
+                  <option value="卫生院">卫生院</option>
+                  <option value="其他">其他</option>
+                </select>
+              </label>
+              <button id="place-search-btn" class="btn btn-small" type="button">查询</button>
+              <button id="place-reset-btn" class="btn btn-small" type="button">重置</button>
+            </div>
+
+            <div id="place-list" class="record-list">
+              <p class="loading-text">加载中…</p>
+            </div>
+          </section>
+        </div>
+      </section>
+    </div>
+
+    <p class="disclaimer">
+      本助手仅提供健康信息参考，不能替代医生诊疗；紧急情况请立即拨打 120。
+    </p>
   </main>
-
   <script>
     const messagesEl = document.getElementById("messages");
     const formEl = document.getElementById("chat-form");
@@ -237,26 +1051,93 @@
     const errorEl = document.getElementById("error");
     const newSessionBtn = document.getElementById("new-session");
     const clearSessionBtn = document.getElementById("clear-session");
+    const tabs = Array.from(document.querySelectorAll(".tab"));
 
     const SESSION_KEY = "medical-agent-session";
     // 与服务端 MAX_MESSAGE_CHARS 保持一致；服务端仍会独立校验
     const MAX_MESSAGE_CHARS = 4000;
+    // 后端返回的模块代号 → 页面展示名称
+    const MODULE_LABELS = {
+      medical_knowledge: "医学知识",
+      health_management: "健康管理",
+      medication: "用药管理",
+      medical_navigation: "医疗导航",
+      general: "通用问答",
+    };
     let sessionId = sessionStorage.getItem(SESSION_KEY) || "";
     let loading = false;
     // 会话代号：每点击一次“新会话”加 1，用来判断回复是否已经过期
     let generation = 0;
+    // 健康面板是否已加载过，首次切到该 Tab 时才请求数据
+    let healthLoaded = false;
+    // 用药面板是否已加载过，同一 Tab 再次进入时保留已有内容
+    let medicationLoaded = false;
+    // 导航面板是否已加载过：首次进入只加载本机保存的地点，不自动发起高德搜索
+    let navigationLoaded = false;
+
+    // 切换 Tab：同一时刻只显示一个面板，不刷新页面
+    function activatePanel(tab) {
+      tabs.forEach(function (item) {
+        const selected = item === tab;
+        item.setAttribute("aria-selected", selected ? "true" : "false");
+        const panel = document.getElementById(item.getAttribute("aria-controls"));
+        if (panel) panel.hidden = !selected;
+      });
+      // 回到问答面板时聚焦输入框，方便继续输入
+      if (tab.id === "tab-knowledge") {
+        inputEl.focus();
+      } else if (tab.id === "tab-health" && !healthLoaded) {
+        // 首次进入健康面板时才加载数据，避免页面打开就发请求
+        healthLoaded = true;
+        loadHealthPanel();
+      } else if (tab.id === "tab-medication" && !medicationLoaded) {
+        // 首次进入用药面板时才加载，之后切回保留已有内容
+        medicationLoaded = true;
+        loadMedicationPanel();
+      } else if (tab.id === "tab-navigation" && !navigationLoaded) {
+        // 首次进入导航面板时只读取本机保存的地点，不自动发起高德搜索
+        navigationLoaded = true;
+        loadNavigationPanel();
+      }
+    }
+
+    tabs.forEach(function (tab, index) {
+      tab.addEventListener("click", function () {
+        activatePanel(tab);
+      });
+      // 支持左右方向键在 Tab 之间移动，便于键盘操作
+      tab.addEventListener("keydown", function (event) {
+        let target = null;
+        if (event.key === "ArrowRight") {
+          target = tabs[(index + 1) % tabs.length];
+        } else if (event.key === "ArrowLeft") {
+          target = tabs[(index - 1 + tabs.length) % tabs.length];
+        }
+        if (!target) return;
+        event.preventDefault();
+        activatePanel(target);
+        target.focus();
+      });
+    });
 
     // 竞态判定：回复携带的代号与当前代号不一致时，说明用户已经开始了新会话
     function isStaleReply(replyGeneration, currentGeneration) {
       return replyGeneration !== currentGeneration;
     }
 
-    function addBubble(role, text) {
+    function addBubble(role, text, meta) {
       const hint = messagesEl.querySelector(".empty-hint");
       if (hint) hint.remove();
       const bubble = document.createElement("div");
       bubble.className = "bubble " + role;
       bubble.textContent = text;
+      // 助手回复可附带本次命中的业务模块，便于确认路由结果
+      if (meta) {
+        const metaEl = document.createElement("div");
+        metaEl.className = "bubble-meta";
+        metaEl.textContent = meta;
+        bubble.appendChild(metaEl);
+      }
       messagesEl.appendChild(bubble);
       messagesEl.scrollTop = messagesEl.scrollHeight;
       return bubble;
@@ -318,7 +1199,8 @@
           sessionId = data.session_id;
           sessionStorage.setItem(SESSION_KEY, sessionId);
         }
-        addBubble("assistant", data.reply || "（空回复）");
+        const moduleLabel = MODULE_LABELS[data.module] || "通用问答";
+        addBubble("assistant", data.reply || "（空回复）", "本次命中：" + moduleLabel);
       } catch (err) {
         // 过期请求同样不提示错误，避免干扰新会话
         if (isStaleReply(requestGeneration, generation)) {
@@ -394,6 +1276,1478 @@
     clearSessionBtn.addEventListener("click", function () {
       clearSession();
     });
+
+    // ===== 健康管理面板 =====
+    // 指标类型与后端 METRIC_RANGES 保持一致，仅用于展示与前端预校验
+    const HEALTH_METRICS = {
+      systolic_bp: { label: "收缩压", unit: "mmHg", min: 60, max: 260, step: 1 },
+      diastolic_bp: { label: "舒张压", unit: "mmHg", min: 30, max: 160, step: 1 },
+      blood_glucose: { label: "血糖", unit: "mmol/L", min: 1, max: 40, step: 0.1 },
+      heart_rate: { label: "心率", unit: "次/分", min: 30, max: 220, step: 1 },
+      temperature: { label: "体温", unit: "℃", min: 30, max: 45, step: 0.1 },
+      spo2: { label: "血氧", unit: "%", min: 50, max: 100, step: 1 },
+    };
+
+    const healthErrorEl = document.getElementById("health-error");
+    const healthRefreshBtn = document.getElementById("health-refresh");
+
+    const profileEmptyEl = document.getElementById("profile-empty");
+    const profileViewEl = document.getElementById("profile-view");
+    const profileFormEl = document.getElementById("profile-form");
+    const profileEditBtn = document.getElementById("profile-edit");
+    const profileCancelBtn = document.getElementById("profile-cancel");
+    const profileSaveBtn = document.getElementById("profile-save");
+    const profileNameEl = document.getElementById("profile-name");
+    const profileGenderEl = document.getElementById("profile-gender");
+    const profileBirthEl = document.getElementById("profile-birth");
+    const profileHeightEl = document.getElementById("profile-height");
+
+    const weightFormEl = document.getElementById("weight-form");
+    const weightValueEl = document.getElementById("weight-value");
+    const weightDateEl = document.getElementById("weight-date");
+    const weightNoteEl = document.getElementById("weight-note");
+    const weightListEl = document.getElementById("weight-list");
+
+    const metricFormEl = document.getElementById("metric-form");
+    const metricTypeEl = document.getElementById("metric-type");
+    const metricValueEl = document.getElementById("metric-value");
+    const metricValueLabelEl = document.getElementById("metric-value-label");
+    const metricTimeEl = document.getElementById("metric-time");
+    const metricRangeEl = document.getElementById("metric-range");
+    const metricFilterEl = document.getElementById("metric-filter");
+    const metricReloadBtn = document.getElementById("metric-reload");
+    const metricListEl = document.getElementById("metric-list");
+
+    let profileData = {};
+    let profileSaving = false;
+    let weightSaving = false;
+    let metricSaving = false;
+
+    function showHealthError(text) {
+      healthErrorEl.textContent = text;
+      healthErrorEl.hidden = false;
+    }
+
+    function hideHealthError() {
+      healthErrorEl.textContent = "";
+      healthErrorEl.hidden = true;
+    }
+
+    // 统一的 JSON 请求封装：
+    // 1) 网络层失败（断网、请求被浏览器拒绝等）统一转成中文提示；
+    // 2) HTTP 错误优先使用后端返回的中文 detail，并保留 error_code；
+    // 3) HTTP 成功但响应体不是合法 JSON 时明确报错，不再当成空对象。
+    async function requestJSON(url, options) {
+      let response;
+      try {
+        response = await fetch(url, options || {});
+      } catch (err) {
+        // fetch 抛异常只代表网络层失败，不向用户暴露底层英文信息
+        throw new Error("网络连接失败，请检查网络后重试。");
+      }
+
+      let text;
+      try {
+        text = await response.text();
+      } catch (err) {
+        throw new Error("响应读取失败，请稍后重试。");
+      }
+
+      let data = null;
+      let parsed = false;
+      try {
+        data = JSON.parse(text);
+        parsed = true;
+      } catch (err) {
+        parsed = false;
+      }
+
+      // HTTP 错误：只要后端给了中文 detail 就优先展示，避免被通用文案覆盖
+      if (!response.ok) {
+        const detail =
+          parsed && data && typeof data.detail === "string" ? data.detail : "";
+        const error = new Error(
+          detail || "请求失败（HTTP " + response.status + "），请稍后再试。"
+        );
+        // 保留错误分类，调用方可按需读取，但当前只展示中文提示
+        if (parsed && data && typeof data.error_code === "string") {
+          error.errorCode = data.error_code;
+        }
+        throw error;
+      }
+
+      // 204 属于正常的“无内容”响应，按空对象处理
+      if (response.status === 204) {
+        return {};
+      }
+
+      // HTTP 2xx 但响应体不是合法 JSON（含空响应体与 null）：明确报格式错误，
+      // 避免搜索被误判成“无结果”，或被误判成“保存成功”
+      if (!parsed || data === null || typeof data !== "object") {
+        throw new Error("服务返回的数据格式异常，请稍后重试。");
+      }
+      return data;
+    }
+
+    function pad2(value) {
+      return String(value).padStart(2, "0");
+    }
+
+    // 本地日期，用于 input[type=date]，避免 toISOString 的时区偏移
+    function todayISO() {
+      const now = new Date();
+      return now.getFullYear() + "-" + pad2(now.getMonth() + 1) + "-" + pad2(now.getDate());
+    }
+
+    // datetime-local 需要的本地时间格式：YYYY-MM-DDTHH:MM
+    function nowLocalInput() {
+      const now = new Date();
+      return todayISO() + "T" + pad2(now.getHours()) + ":" + pad2(now.getMinutes());
+    }
+
+    function formatNumber(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return String(value);
+      return Number.isInteger(number) ? String(number) : number.toFixed(1);
+    }
+
+    function textOrDash(value) {
+      return value === null || value === undefined || value === "" ? "—" : String(value);
+    }
+
+    // ---------- 健康档案 ----------
+    function renderProfile() {
+      const hasProfile = profileData && Object.keys(profileData).length > 0;
+      profileEmptyEl.hidden = hasProfile;
+      profileViewEl.hidden = !hasProfile;
+      profileEditBtn.textContent = hasProfile ? "编辑" : "新建";
+      if (!hasProfile) {
+        profileFormEl.hidden = true;
+        return;
+      }
+      document.getElementById("view-name").textContent = textOrDash(profileData.name);
+      document.getElementById("view-gender").textContent = textOrDash(profileData.gender);
+      document.getElementById("view-birth").textContent = textOrDash(profileData.birth_date);
+      document.getElementById("view-height").textContent =
+        profileData.height_cm === null || profileData.height_cm === undefined
+          ? "—"
+          : formatNumber(profileData.height_cm) + " cm";
+      // 更新时间由服务端生成，只做展示
+      document.getElementById("view-updated").textContent = textOrDash(profileData.updated_at);
+    }
+
+    // 只收集用户实际填写的字段，空字符串一律过滤
+    function buildProfilePayload() {
+      const payload = {};
+      const name = profileNameEl.value.trim();
+      if (name) payload.name = name;
+      if (profileGenderEl.value) payload.gender = profileGenderEl.value;
+      if (profileBirthEl.value) payload.birth_date = profileBirthEl.value;
+      const height = profileHeightEl.value.trim();
+      if (height) payload.height_cm = Number(height);
+      return payload;
+    }
+
+    function updateProfileSaveState() {
+      profileSaveBtn.disabled =
+        profileSaving || Object.keys(buildProfilePayload()).length === 0;
+    }
+
+    function openProfileForm() {
+      hideHealthError();
+      profileNameEl.value = profileData.name || "";
+      profileGenderEl.value = profileData.gender || "";
+      profileBirthEl.value = profileData.birth_date || "";
+      profileHeightEl.value =
+        profileData.height_cm === null || profileData.height_cm === undefined
+          ? ""
+          : String(profileData.height_cm);
+      profileFormEl.hidden = false;
+      profileViewEl.hidden = true;
+      profileEmptyEl.hidden = true;
+      updateProfileSaveState();
+      profileNameEl.focus();
+    }
+
+    function closeProfileForm() {
+      profileFormEl.hidden = true;
+      renderProfile();
+    }
+
+    async function loadProfile() {
+      try {
+        const data = await requestJSON("/api/health/profile");
+        profileData = data.profile || {};
+        renderProfile();
+      } catch (err) {
+        showHealthError(err.message);
+      }
+    }
+
+    profileEditBtn.addEventListener("click", function () {
+      if (profileFormEl.hidden) openProfileForm();
+      else closeProfileForm();
+    });
+
+    profileCancelBtn.addEventListener("click", closeProfileForm);
+
+    [profileNameEl, profileGenderEl, profileBirthEl, profileHeightEl].forEach(function (el) {
+      el.addEventListener("input", updateProfileSaveState);
+      el.addEventListener("change", updateProfileSaveState);
+    });
+
+    profileFormEl.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      if (profileSaving) return;
+      const payload = buildProfilePayload();
+      if (Object.keys(payload).length === 0) {
+        showHealthError("请至少填写一个档案字段。");
+        return;
+      }
+      if (
+        payload.height_cm !== undefined &&
+        !(payload.height_cm >= 100 && payload.height_cm <= 250)
+      ) {
+        showHealthError("身高应为 100～250 cm 之间的数字。");
+        return;
+      }
+
+      profileSaving = true;
+      profileSaveBtn.disabled = true;
+      hideHealthError();
+      try {
+        await requestJSON("/api/health/profile", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        // 保存成功后重新读取，确保展示的是服务端合并后的完整档案
+        await loadProfile();
+        profileFormEl.hidden = true;
+        renderProfile();
+      } catch (err) {
+        showHealthError(err.message);
+      } finally {
+        profileSaving = false;
+        updateProfileSaveState();
+      }
+    });
+
+    // ---------- 体重记录 ----------
+    function renderWeights(records) {
+      weightListEl.innerHTML = "";
+      if (!records.length) {
+        const empty = document.createElement("p");
+        empty.className = "record-empty";
+        empty.textContent = "暂无体重记录。";
+        weightListEl.appendChild(empty);
+        return;
+      }
+      records.forEach(function (record) {
+        const item = document.createElement("div");
+        item.className = "record-item";
+
+        const main = document.createElement("div");
+        main.className = "record-main";
+        main.textContent =
+          formatNumber(record.weight_kg) + " kg · " + record.record_date;
+        if (record.note) {
+          const meta = document.createElement("div");
+          meta.className = "record-meta";
+          meta.textContent = record.note;
+          main.appendChild(meta);
+        }
+
+        const del = document.createElement("button");
+        del.className = "btn btn-danger btn-small";
+        del.type = "button";
+        del.textContent = "删除";
+        del.addEventListener("click", function () {
+          deleteWeight(record);
+        });
+
+        item.appendChild(main);
+        item.appendChild(del);
+        weightListEl.appendChild(item);
+      });
+    }
+
+    function showListFailure(container, text) {
+      container.innerHTML = "";
+      const fail = document.createElement("p");
+      fail.className = "record-empty";
+      fail.textContent = text;
+      container.appendChild(fail);
+    }
+
+    async function loadWeights() {
+      weightListEl.innerHTML = '<p class="loading-text">加载中…</p>';
+      try {
+        const data = await requestJSON("/api/health/weights?limit=20");
+        renderWeights(data.records || []);
+      } catch (err) {
+        showListFailure(weightListEl, "体重记录加载失败。");
+        showHealthError(err.message);
+      }
+    }
+
+    async function deleteWeight(record) {
+      const label =
+        "「" + record.record_date + " " + formatNumber(record.weight_kg) + " kg」的体重记录";
+      if (!confirm("确定删除" + label + "吗？删除后无法恢复。")) {
+        return;
+      }
+      hideHealthError();
+      try {
+        await requestJSON("/api/health/weights/" + encodeURIComponent(record.id), {
+          method: "DELETE",
+        });
+        // 删除成功后重新读取列表，保证与服务端一致
+        await loadWeights();
+      } catch (err) {
+        showHealthError(err.message);
+      }
+    }
+
+    weightFormEl.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      if (weightSaving) return;
+
+      const raw = weightValueEl.value.trim();
+      if (!raw) {
+        showHealthError("请填写体重数值。");
+        return;
+      }
+      const weight = Number(raw);
+      if (!Number.isFinite(weight) || weight < 20 || weight > 300) {
+        showHealthError("体重应为 20～300 kg 之间的数字。");
+        return;
+      }
+      const note = weightNoteEl.value.trim();
+      if (note.length > 200) {
+        showHealthError("备注最多 200 字。");
+        return;
+      }
+
+      const payload = { weight_kg: weight };
+      if (weightDateEl.value) payload.record_date = weightDateEl.value;
+      if (note) payload.note = note;
+
+      const submitBtn = weightFormEl.querySelector('button[type="submit"]');
+      weightSaving = true;
+      submitBtn.disabled = true;
+      hideHealthError();
+      try {
+        await requestJSON("/api/health/weights", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        // 保存成功后清空输入，并保留默认的今天日期
+        weightValueEl.value = "";
+        weightNoteEl.value = "";
+        weightDateEl.value = todayISO();
+        await loadWeights();
+      } catch (err) {
+        showHealthError(err.message);
+      } finally {
+        weightSaving = false;
+        submitBtn.disabled = false;
+      }
+    });
+
+    // ---------- 健康指标 ----------
+    function currentMetricKey() {
+      return metricTypeEl.value;
+    }
+
+    // 切换类型时同步中文名称、单位与输入范围提示
+    function updateMetricHint() {
+      const info = HEALTH_METRICS[currentMetricKey()];
+      if (!info) return;
+      metricValueLabelEl.textContent = "数值（" + info.unit + "）";
+      metricValueEl.min = String(info.min);
+      metricValueEl.max = String(info.max);
+      metricValueEl.step = String(info.step);
+      metricValueEl.placeholder = info.min + "～" + info.max;
+      metricRangeEl.textContent =
+        info.label + "范围 " + info.min + "～" + info.max + " " + info.unit + "。";
+    }
+
+    function renderMetrics(records) {
+      metricListEl.innerHTML = "";
+      if (!records.length) {
+        const empty = document.createElement("p");
+        empty.className = "record-empty";
+        empty.textContent = "暂无健康指标记录。";
+        metricListEl.appendChild(empty);
+        return;
+      }
+      records.forEach(function (record) {
+        const info = HEALTH_METRICS[record.metric] || {
+          label: record.metric,
+          unit: "",
+        };
+        const item = document.createElement("div");
+        item.className = "record-item";
+
+        const main = document.createElement("div");
+        main.className = "record-main";
+        main.textContent =
+          info.label + "：" + formatNumber(record.value) + " " + info.unit;
+        const meta = document.createElement("div");
+        meta.className = "record-meta";
+        meta.textContent = record.recorded_at;
+        main.appendChild(meta);
+
+        item.appendChild(main);
+        metricListEl.appendChild(item);
+      });
+    }
+
+    async function loadMetrics() {
+      metricListEl.innerHTML = '<p class="loading-text">加载中…</p>';
+      const metric = metricFilterEl.value;
+      const url =
+        "/api/health/metrics?limit=20" +
+        (metric ? "&metric=" + encodeURIComponent(metric) : "");
+      try {
+        const data = await requestJSON(url);
+        renderMetrics(data.records || []);
+      } catch (err) {
+        showListFailure(metricListEl, "健康指标加载失败。");
+        showHealthError(err.message);
+      }
+    }
+
+    metricTypeEl.addEventListener("change", function () {
+      // 类型切换后清空数值，避免旧数值落到新类型的范围外
+      metricValueEl.value = "";
+      updateMetricHint();
+    });
+
+    metricFilterEl.addEventListener("change", loadMetrics);
+    metricReloadBtn.addEventListener("click", loadMetrics);
+
+    // 每次聚焦时刷新可选上限，避免页面长时间停留后仍能选择“未来时间”
+    metricTimeEl.addEventListener("focus", function () {
+      metricTimeEl.max = nowLocalInput();
+    });
+
+    metricFormEl.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      if (metricSaving) return;
+
+      const info = HEALTH_METRICS[currentMetricKey()];
+      const raw = metricValueEl.value.trim();
+      if (!raw) {
+        showHealthError("请填写" + info.label + "数值。");
+        return;
+      }
+      const value = Number(raw);
+      if (!Number.isFinite(value) || value < info.min || value > info.max) {
+        showHealthError(
+          info.label + "数值应在 " + info.min + "～" + info.max + " " + info.unit + " 之间。"
+        );
+        return;
+      }
+
+      const payload = { metric: currentMetricKey(), value: value };
+      const timeValue = metricTimeEl.value;
+      if (timeValue) {
+        if (new Date(timeValue) > new Date()) {
+          showHealthError("记录时间不能晚于当前时间。");
+          return;
+        }
+        // datetime-local 用 T 分隔，后端只接受空格分隔
+        payload.recorded_at = timeValue.replace("T", " ");
+      }
+
+      const submitBtn = metricFormEl.querySelector('button[type="submit"]');
+      metricSaving = true;
+      submitBtn.disabled = true;
+      hideHealthError();
+      try {
+        await requestJSON("/api/health/metrics", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        metricValueEl.value = "";
+        metricTimeEl.value = nowLocalInput();
+        metricTimeEl.max = nowLocalInput();
+        await loadMetrics();
+      } catch (err) {
+        showHealthError(err.message);
+      } finally {
+        metricSaving = false;
+        submitBtn.disabled = false;
+      }
+    });
+
+    // ---------- 面板整体加载 ----------
+    async function loadHealthPanel() {
+      hideHealthError();
+      // 三块数据互不阻塞：某一块失败不影响其它块展示
+      await Promise.allSettled([loadProfile(), loadWeights(), loadMetrics()]);
+    }
+
+    healthRefreshBtn.addEventListener("click", function () {
+      loadHealthPanel();
+    });
+
+    // 初始化默认值：体重日期默认今天，指标时间默认当前本地时间
+    weightDateEl.max = todayISO();
+    weightDateEl.value = todayISO();
+    metricTimeEl.max = nowLocalInput();
+    metricTimeEl.value = nowLocalInput();
+    updateMetricHint();
+
+    // ===== 用药管理面板 =====
+    const medicationErrorEl = document.getElementById("medication-error");
+    const medicationRefreshBtn = document.getElementById("medication-refresh");
+
+    const planFormEl = document.getElementById("plan-form");
+    const planNameEl = document.getElementById("plan-name");
+    const planTimesEl = document.getElementById("plan-times");
+    const planInstructionEl = document.getElementById("plan-instruction");
+    const planStartEl = document.getElementById("plan-start");
+    const planEndEl = document.getElementById("plan-end");
+    const planNoteEl = document.getElementById("plan-note");
+    const planFilterEl = document.getElementById("plan-filter");
+    const planReloadBtn = document.getElementById("plan-reload");
+    const planListEl = document.getElementById("plan-list");
+    const planCountEl = document.getElementById("plan-count");
+    const planNoticeEl = document.getElementById("plan-notice");
+
+    const logFormEl = document.getElementById("log-form");
+    const logPlanEl = document.getElementById("log-plan");
+    const logTimeEl = document.getElementById("log-time");
+    const logNoteEl = document.getElementById("log-note");
+    const logReloadBtn = document.getElementById("log-reload");
+    const logListEl = document.getElementById("log-list");
+    const logNoticeEl = document.getElementById("log-notice");
+
+    let currentPlans = [];
+    let planLoading = false;
+    let planSaving = false;
+    let planActing = false;
+    let logLoading = false;
+    let logSaving = false;
+
+    function showMedicationError(text) {
+      medicationErrorEl.textContent = text;
+      medicationErrorEl.hidden = false;
+    }
+
+    function hideMedicationError() {
+      medicationErrorEl.textContent = "";
+      medicationErrorEl.hidden = true;
+    }
+
+    // 展示后端返回的 notice，没有内容时隐藏
+    function showNotice(element, text) {
+      if (!text) {
+        element.textContent = "";
+        element.hidden = true;
+        return;
+      }
+      element.textContent = text;
+      element.hidden = false;
+    }
+
+    // 加载失败时若已有旧数据则保留，不覆盖用户正在查看的列表
+    function showMedicationListFailure(container, text) {
+      if (container.querySelector(".record-item")) return;
+      container.innerHTML = "";
+      const fail = document.createElement("p");
+      fail.className = "record-empty";
+      fail.textContent = text;
+      container.appendChild(fail);
+    }
+
+    // 解析用药时间：支持中英文逗号与空格分隔，最多 6 个，格式 HH:MM
+    function parseScheduleTimes(raw) {
+      const text = (raw || "").trim();
+      if (!text) return { times: [], error: null };
+      const parts = text.split(/[,，\s]+/).filter(Boolean);
+      if (parts.length > 6) {
+        return { times: [], error: "用药时间最多填写 6 个。" };
+      }
+      const times = [];
+      for (let i = 0; i < parts.length; i += 1) {
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(parts[i])) {
+          return { times: [], error: "用药时间格式应为 HH:MM，例如 08:00。" };
+        }
+        // 去重，避免重复时间点
+        if (times.indexOf(parts[i]) === -1) times.push(parts[i]);
+      }
+      return { times: times, error: null };
+    }
+
+    // 计划详情行：标签与内容都用文本节点，杜绝 HTML 注入
+    function addDetailLine(container, label, text) {
+      const line = document.createElement("div");
+      line.className = "detail-line";
+      const labelEl = document.createElement("span");
+      labelEl.className = "label";
+      labelEl.textContent = label + "：";
+      line.appendChild(labelEl);
+      line.appendChild(document.createTextNode(String(text)));
+      container.appendChild(line);
+    }
+
+    function renderPlans(plans) {
+      planListEl.innerHTML = "";
+      planCountEl.textContent = plans.length ? "共 " + plans.length + " 条" : "";
+      if (!plans.length) {
+        const empty = document.createElement("p");
+        empty.className = "record-empty";
+        empty.textContent = "暂无用药计划。";
+        planListEl.appendChild(empty);
+        return;
+      }
+      plans.forEach(function (plan) {
+        const active = plan.status === "active";
+
+        const item = document.createElement("div");
+        item.className = "record-item";
+
+        const main = document.createElement("div");
+        main.className = "record-main";
+
+        const head = document.createElement("div");
+        head.className = "record-head";
+        const nameEl = document.createElement("strong");
+        nameEl.textContent = plan.medication_name;
+        const badge = document.createElement("span");
+        badge.className = "badge " + (active ? "badge-active" : "badge-stopped");
+        badge.textContent = active ? "生效中" : "已停用";
+        head.appendChild(nameEl);
+        head.appendChild(badge);
+        main.appendChild(head);
+
+        addDetailLine(main, "医嘱用法", plan.doctor_instruction);
+        if (plan.schedule_times) addDetailLine(main, "用药时间", plan.schedule_times);
+        if (plan.start_date || plan.end_date) {
+          addDetailLine(
+            main,
+            "起止日期",
+            (plan.start_date || "未填") + " ～ " + (plan.end_date || "未填")
+          );
+        }
+        if (plan.note) addDetailLine(main, "备注", plan.note);
+
+        const actions = document.createElement("div");
+        actions.className = "record-actions";
+
+        // 只有生效中的计划才显示“停用”
+        if (active) {
+          const stopBtn = document.createElement("button");
+          stopBtn.type = "button";
+          stopBtn.className = "btn btn-small";
+          stopBtn.textContent = "停用";
+          stopBtn.addEventListener("click", function () {
+            stopPlan(plan);
+          });
+          actions.appendChild(stopBtn);
+        }
+
+        // 删除是独立危险操作，不与停用合并
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "btn btn-danger btn-small";
+        deleteBtn.textContent = "删除";
+        deleteBtn.addEventListener("click", function () {
+          deletePlan(plan);
+        });
+        actions.appendChild(deleteBtn);
+
+        item.appendChild(main);
+        item.appendChild(actions);
+        planListEl.appendChild(item);
+      });
+    }
+
+    // 记录表单的计划下拉只列出生效中的计划
+    function updateLogPlanOptions(plans) {
+      const activePlans = plans.filter(function (plan) {
+        return plan.status === "active";
+      });
+      const previous = logPlanEl.value;
+      logPlanEl.innerHTML = "";
+
+      if (!activePlans.length) {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "暂无生效中的计划";
+        logPlanEl.appendChild(option);
+        logPlanEl.disabled = true;
+        return;
+      }
+
+      logPlanEl.disabled = false;
+      activePlans.forEach(function (plan) {
+        const option = document.createElement("option");
+        option.value = String(plan.id);
+        option.textContent = plan.medication_name;
+        logPlanEl.appendChild(option);
+      });
+      // 尽量保留用户原来的选择
+      const stillExists = activePlans.some(function (plan) {
+        return String(plan.id) === previous;
+      });
+      if (stillExists) logPlanEl.value = previous;
+    }
+
+    async function loadPlans() {
+      if (planLoading) return;
+      planLoading = true;
+      const status = planFilterEl.value;
+      const url =
+        "/api/medication/plans?limit=20" +
+        (status ? "&status=" + encodeURIComponent(status) : "");
+      try {
+        const data = await requestJSON(url);
+        currentPlans = data.plans || [];
+        renderPlans(currentPlans);
+        updateLogPlanOptions(currentPlans);
+        showNotice(planNoticeEl, data.notice);
+      } catch (err) {
+        showMedicationListFailure(planListEl, "用药计划加载失败。");
+        showMedicationError(err.message);
+      } finally {
+        planLoading = false;
+      }
+    }
+
+    async function stopPlan(plan) {
+      if (planActing) return;
+      const confirmed = confirm(
+        "停用后该计划会保留，历史服药记录不受影响，但将无法继续新增服药记录。" +
+          "确定停用「" + plan.medication_name + "」吗？"
+      );
+      if (!confirmed) return;
+
+      planActing = true;
+      hideMedicationError();
+      try {
+        await requestJSON(
+          "/api/medication/plans/" + encodeURIComponent(plan.id) + "?mode=stop",
+          { method: "DELETE" }
+        );
+        // 按当前筛选条件重新加载，避免列表与筛选状态不一致
+        await loadPlans();
+      } catch (err) {
+        showMedicationError(err.message);
+      } finally {
+        planActing = false;
+      }
+    }
+
+    async function deletePlan(plan) {
+      if (planActing) return;
+      const confirmed = confirm(
+        "删除后，该计划下的全部服药记录也会被永久删除，且无法恢复。" +
+          "确定删除「" + plan.medication_name + "」吗？"
+      );
+      if (!confirmed) return;
+
+      planActing = true;
+      hideMedicationError();
+      try {
+        await requestJSON(
+          "/api/medication/plans/" + encodeURIComponent(plan.id) + "?mode=delete",
+          { method: "DELETE" }
+        );
+        // 删除会级联删除记录，计划和记录都要刷新
+        await Promise.allSettled([loadPlans(), loadLogs()]);
+      } catch (err) {
+        showMedicationError(err.message);
+      } finally {
+        planActing = false;
+      }
+    }
+
+    planFormEl.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      if (planSaving) return;
+
+      const name = planNameEl.value.trim();
+      if (!name) {
+        showMedicationError("请填写药品名称。");
+        return;
+      }
+      if (name.length > 50) {
+        showMedicationError("药品名称最多 50 字。");
+        return;
+      }
+
+      const instruction = planInstructionEl.value.trim();
+      if (!instruction) {
+        showMedicationError("请按医生提供的信息填写医嘱用法。");
+        return;
+      }
+      if (instruction.length > 200) {
+        showMedicationError("医嘱用法最多 200 字。");
+        return;
+      }
+
+      const parsedTimes = parseScheduleTimes(planTimesEl.value);
+      if (parsedTimes.error) {
+        showMedicationError(parsedTimes.error);
+        return;
+      }
+
+      const startDate = planStartEl.value;
+      const endDate = planEndEl.value;
+      if (startDate && endDate && endDate < startDate) {
+        showMedicationError("结束日期不能早于开始日期。");
+        return;
+      }
+
+      const note = planNoteEl.value.trim();
+      if (note.length > 200) {
+        showMedicationError("备注最多 200 字。");
+        return;
+      }
+
+      // 只提交实际填写的字段；用药时间为空时完全省略，
+      // 避免后端把空数组或空字符串判为“用药时间不能为空”
+      const payload = {
+        medication_name: name,
+        doctor_instruction: instruction,
+      };
+      if (parsedTimes.times.length) payload.schedule_times = parsedTimes.times;
+      if (startDate) payload.start_date = startDate;
+      if (endDate) payload.end_date = endDate;
+      if (note) payload.note = note;
+
+      const submitBtn = planFormEl.querySelector('button[type="submit"]');
+      planSaving = true;
+      submitBtn.disabled = true;
+      hideMedicationError();
+      try {
+        await requestJSON("/api/medication/plans", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        // 创建成功后清空表单并刷新计划列表
+        planNameEl.value = "";
+        planTimesEl.value = "";
+        planInstructionEl.value = "";
+        planStartEl.value = "";
+        planEndEl.value = "";
+        planNoteEl.value = "";
+        await loadPlans();
+        await loadLogs();
+      } catch (err) {
+        showMedicationError(err.message);
+      } finally {
+        planSaving = false;
+        submitBtn.disabled = false;
+      }
+    });
+
+    planFilterEl.addEventListener("change", loadPlans);
+    planReloadBtn.addEventListener("click", loadPlans);
+
+    // ---------- 服药记录 ----------
+    let logDeleting = false;
+
+    function renderLogs(logs) {
+      logListEl.innerHTML = "";
+      if (!logs.length) {
+        const empty = document.createElement("p");
+        empty.className = "record-empty";
+        empty.textContent = "暂无服药记录。";
+        logListEl.appendChild(empty);
+        return;
+      }
+      logs.forEach(function (log) {
+        const item = document.createElement("div");
+        item.className = "record-item";
+
+        const main = document.createElement("div");
+        main.className = "record-main";
+
+        const nameEl = document.createElement("strong");
+        nameEl.textContent = log.medication_name || "计划 #" + log.plan_id;
+        main.appendChild(nameEl);
+
+        addDetailLine(main, "服药时间", log.taken_at);
+        if (log.note) addDetailLine(main, "备注", log.note);
+
+        const actions = document.createElement("div");
+        actions.className = "record-actions";
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "btn btn-danger btn-small";
+        deleteBtn.textContent = "删除";
+        deleteBtn.addEventListener("click", function () {
+          deleteLog(log);
+        });
+        actions.appendChild(deleteBtn);
+
+        item.appendChild(main);
+        item.appendChild(actions);
+        logListEl.appendChild(item);
+      });
+    }
+
+    async function loadLogs() {
+      if (logLoading) return;
+      logLoading = true;
+      try {
+        const data = await requestJSON("/api/medication/logs?limit=20");
+        renderLogs(data.logs || []);
+        showNotice(logNoticeEl, data.notice);
+      } catch (err) {
+        showMedicationListFailure(logListEl, "服药记录加载失败。");
+        showMedicationError(err.message);
+      } finally {
+        logLoading = false;
+      }
+    }
+
+    async function deleteLog(log) {
+      if (logDeleting) return;
+      const label =
+        "「" + log.taken_at + " " + (log.medication_name || "计划 #" + log.plan_id) + "」";
+      if (!confirm("确定删除" + label + "的服药记录吗？删除后无法恢复。")) {
+        return;
+      }
+      logDeleting = true;
+      hideMedicationError();
+      try {
+        await requestJSON(
+          "/api/medication/logs/" + encodeURIComponent(log.id),
+          { method: "DELETE" }
+        );
+        // 删除接口不返回新列表，必须重新 GET 刷新
+        await loadLogs();
+      } catch (err) {
+        showMedicationError(err.message);
+      } finally {
+        logDeleting = false;
+      }
+    }
+
+    logFormEl.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      if (logSaving) return;
+
+      const planId = logPlanEl.value;
+      if (!planId) {
+        showMedicationError("请选择生效中的用药计划。");
+        return;
+      }
+
+      const note = logNoteEl.value.trim();
+      if (note.length > 200) {
+        showMedicationError("备注最多 200 字。");
+        return;
+      }
+
+      const payload = { plan_id: Number(planId) };
+      const timeValue = logTimeEl.value;
+      if (timeValue) {
+        if (new Date(timeValue) > new Date()) {
+          showMedicationError("服药时间不能晚于当前时间。");
+          return;
+        }
+        // datetime-local 用 T 分隔，后端只接受空格分隔
+        payload.taken_at = timeValue.replace("T", " ");
+      }
+      // 时间为空时完全省略 taken_at，让服务端使用当前时间
+      if (note) payload.note = note;
+
+      const submitBtn = logFormEl.querySelector('button[type="submit"]');
+      logSaving = true;
+      submitBtn.disabled = true;
+      hideMedicationError();
+      try {
+        await requestJSON("/api/medication/logs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        logNoteEl.value = "";
+        logTimeEl.value = nowLocalInput();
+        logTimeEl.max = nowLocalInput();
+        await loadLogs();
+      } catch (err) {
+        // 计划被并发停用时后端返回真实中文提示，直接展示
+        showMedicationError(err.message);
+      } finally {
+        logSaving = false;
+        submitBtn.disabled = false;
+      }
+    });
+
+    logReloadBtn.addEventListener("click", loadLogs);
+
+    // 每次聚焦时刷新可选上限，避免页面停留过久后仍能选择未来时间
+    logTimeEl.addEventListener("focus", function () {
+      logTimeEl.max = nowLocalInput();
+    });
+
+    async function loadMedicationPanel() {
+      hideMedicationError();
+      await Promise.allSettled([loadPlans(), loadLogs()]);
+    }
+
+    medicationRefreshBtn.addEventListener("click", function () {
+      loadMedicationPanel();
+    });
+
+    // 初始化服药时间：默认当前本地时间
+    logTimeEl.max = nowLocalInput();
+    logTimeEl.value = nowLocalInput();
+
+    // ===== 医疗导航面板 =====
+    // 手动地点类别必须与后端 CATEGORIES 完全一致
+    const NAVIGATION_CATEGORIES = ["医院", "诊所", "药房", "卫生院", "其他"];
+    // 后端 GET /api/navigation/places 的 limit 上限为 100
+    const NAVIGATION_LIST_LIMIT = 100;
+
+    const navigationErrorEl = document.getElementById("navigation-error");
+    const navReloadBtn = document.getElementById("nav-reload");
+
+    const poiFormEl = document.getElementById("poi-form");
+    const poiCityEl = document.getElementById("poi-city");
+    const poiKeywordsEl = document.getElementById("poi-keywords");
+    const poiCategoryEl = document.getElementById("poi-category");
+    const poiSubmitBtn = document.getElementById("poi-submit");
+    const poiStatusEl = document.getElementById("poi-status");
+    const poiListEl = document.getElementById("poi-list");
+
+    const placeFormEl = document.getElementById("place-form");
+    const placeNameEl = document.getElementById("place-name");
+    const placeCategoryEl = document.getElementById("place-category");
+    const placeAddressEl = document.getElementById("place-address");
+    const placePhoneEl = document.getElementById("place-phone");
+    const placeNoteEl = document.getElementById("place-note");
+    const placeSubmitBtn = document.getElementById("place-submit");
+    const placeCancelBtn = document.getElementById("place-cancel");
+    const placeFormHintEl = document.getElementById("place-form-hint");
+    const placeSearchEl = document.getElementById("place-search");
+    const placeFilterEl = document.getElementById("place-filter");
+    const placeSearchBtn = document.getElementById("place-search-btn");
+    const placeResetBtn = document.getElementById("place-reset-btn");
+    const placeListEl = document.getElementById("place-list");
+    const placeCountEl = document.getElementById("place-count");
+
+    // 两个区域各自独立的进行中标志，避免互相影响
+    let poiSearching = false;
+    let placeLoading = false;
+    let placeSaving = false;
+    let placeActing = false;
+    // null 表示新增模式；数字表示正在编辑的地点编号
+    let editingPlaceId = null;
+
+    function showNavigationError(text) {
+      navigationErrorEl.textContent = text;
+      navigationErrorEl.hidden = false;
+    }
+
+    function hideNavigationError() {
+      navigationErrorEl.textContent = "";
+      navigationErrorEl.hidden = true;
+    }
+
+    // 高德搜索区独立状态：加载中灰色，失败红色
+    function showPoiStatus(text, isError) {
+      poiStatusEl.textContent = text || "";
+      poiStatusEl.hidden = !text;
+      poiStatusEl.classList.toggle("poi-status-error", Boolean(isError));
+    }
+
+    // ---------- 高德实时搜索结果 ----------
+    function renderPoiResults(results) {
+      poiListEl.innerHTML = "";
+      if (!results.length) {
+        const empty = document.createElement("p");
+        empty.className = "record-empty";
+        empty.textContent = "没有找到匹配的地点，请调整城市或关键词后重试。";
+        poiListEl.appendChild(empty);
+        return;
+      }
+      results.forEach(function (poi) {
+        const item = document.createElement("div");
+        item.className = "record-item";
+
+        const main = document.createElement("div");
+        main.className = "record-main";
+
+        const head = document.createElement("div");
+        head.className = "record-head";
+        const nameEl = document.createElement("strong");
+        nameEl.textContent = poi.name || "未命名地点";
+        const sourceTag = document.createElement("span");
+        sourceTag.className = "badge badge-source";
+        sourceTag.textContent = poi.data_source || "高德地图";
+        head.appendChild(nameEl);
+        head.appendChild(sourceTag);
+        main.appendChild(head);
+
+        if (poi.category) addDetailLine(main, "分类", poi.category);
+        if (poi.address) addDetailLine(main, "地址", poi.address);
+        if (poi.phone) addDetailLine(main, "电话", poi.phone);
+        const region = [poi.city, poi.district].filter(Boolean).join(" ");
+        if (region) addDetailLine(main, "城市/区域", region);
+
+        // 实时结果只做展示，不提供任何“保存/收藏”入口
+        item.appendChild(main);
+        poiListEl.appendChild(item);
+      });
+    }
+
+    // ---------- 高德实时搜索提交 ----------
+    poiFormEl.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      if (poiSearching) return;
+
+      const city = poiCityEl.value.trim();
+      if (!city) {
+        showPoiStatus("请填写城市。", true);
+        return;
+      }
+      if (city.length > 20) {
+        showPoiStatus("城市名称最多 20 个字符。", true);
+        return;
+      }
+
+      const keywords = poiKeywordsEl.value.trim();
+      if (!keywords) {
+        showPoiStatus("请填写地点关键词。", true);
+        return;
+      }
+      if (keywords.length > 80) {
+        showPoiStatus("地点关键词最多 80 个字符。", true);
+        return;
+      }
+
+      // 分类下拉的 value 是高德 POI 分类编码，空字符串表示不限制类型
+      const types = poiCategoryEl.value;
+
+      const params = new URLSearchParams();
+      params.set("keywords", keywords);
+      params.set("city", city);
+      // 本页面固定把结果限制在指定城市内，避免跨城市结果造成误解
+      params.set("citylimit", "true");
+      if (types) params.set("types", types);
+
+      poiSearching = true;
+      poiSubmitBtn.disabled = true;
+      hideNavigationError();
+      showPoiStatus("正在搜索高德地图…", false);
+      poiListEl.innerHTML = "";
+      try {
+        const data = await requestJSON(
+          "/api/navigation/search?" + params.toString()
+        );
+        showPoiStatus("", false);
+        renderPoiResults(data.results || []);
+      } catch (err) {
+        // 失败时清空结果区，避免把上一次结果误认为本次结果
+        poiListEl.innerHTML = "";
+        showPoiStatus("搜索失败：" + (err.message || "请稍后再试。"), true);
+      } finally {
+        poiSearching = false;
+        poiSubmitBtn.disabled = false;
+      }
+    });
+
+    // ---------- 手动保存地点列表 ----------
+    function renderPlaces(places) {
+      placeListEl.innerHTML = "";
+      placeCountEl.textContent = places.length ? "共 " + places.length + " 条" : "";
+      if (!places.length) {
+        const empty = document.createElement("p");
+        empty.className = "record-empty";
+        empty.textContent = "还没有保存的地点，可在上方表单新增。";
+        placeListEl.appendChild(empty);
+        return;
+      }
+      places.forEach(function (place) {
+        const item = document.createElement("div");
+        item.className = "record-item";
+
+        const main = document.createElement("div");
+        main.className = "record-main";
+
+        const head = document.createElement("div");
+        head.className = "record-head";
+        const nameEl = document.createElement("strong");
+        nameEl.textContent = place.name || "未命名地点";
+        const badge = document.createElement("span");
+        badge.className = "badge badge-active";
+        badge.textContent = place.category || "其他";
+        head.appendChild(nameEl);
+        head.appendChild(badge);
+        main.appendChild(head);
+
+        if (place.address) addDetailLine(main, "地址", place.address);
+        if (place.phone) addDetailLine(main, "电话", place.phone);
+        if (place.note) addDetailLine(main, "备注", place.note);
+
+        const detail = document.createElement("div");
+        detail.className = "place-detail";
+        detail.hidden = true;
+        main.appendChild(detail);
+
+        const actions = document.createElement("div");
+        actions.className = "record-actions";
+
+        const detailBtn = document.createElement("button");
+        detailBtn.type = "button";
+        detailBtn.className = "btn btn-small";
+        detailBtn.textContent = "详情";
+        detailBtn.addEventListener("click", function () {
+          loadPlaceDetail(place.id, detail, detailBtn);
+        });
+
+        const editBtn = document.createElement("button");
+        editBtn.type = "button";
+        editBtn.className = "btn btn-small";
+        editBtn.textContent = "编辑";
+        editBtn.addEventListener("click", function () {
+          startEditPlace(place);
+        });
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "btn btn-danger btn-small";
+        deleteBtn.textContent = "删除";
+        deleteBtn.addEventListener("click", function () {
+          deletePlace(place);
+        });
+
+        actions.appendChild(detailBtn);
+        actions.appendChild(editBtn);
+        actions.appendChild(deleteBtn);
+        item.appendChild(main);
+        item.appendChild(actions);
+        placeListEl.appendChild(item);
+      });
+    }
+
+    // 查看详情：再次请求单个地点，确保展示服务端最新数据
+    async function loadPlaceDetail(placeId, container, button) {
+      if (!container.hidden) {
+        container.hidden = true;
+        button.textContent = "详情";
+        return;
+      }
+      button.disabled = true;
+      hideNavigationError();
+      try {
+        const data = await requestJSON(
+          "/api/navigation/places/" + encodeURIComponent(placeId)
+        );
+        const place = data.place || {};
+        container.innerHTML = "";
+        addDetailLine(container, "编号", textOrDash(place.id));
+        addDetailLine(container, "名称", textOrDash(place.name));
+        addDetailLine(container, "类别", textOrDash(place.category));
+        addDetailLine(container, "地址", textOrDash(place.address));
+        addDetailLine(container, "电话", textOrDash(place.phone));
+        addDetailLine(container, "备注", textOrDash(place.note));
+        addDetailLine(container, "创建时间", textOrDash(place.created_at));
+        addDetailLine(container, "更新时间", textOrDash(place.updated_at));
+        container.hidden = false;
+        button.textContent = "收起";
+      } catch (err) {
+        showNavigationError(err.message);
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    // place 为空时切回新增模式；传入地点时进入编辑模式
+    function setPlaceFormMode(place) {
+      if (place) {
+        editingPlaceId = place.id;
+        placeNameEl.value = place.name || "";
+        placeCategoryEl.value = place.category || "";
+        placeAddressEl.value = place.address || "";
+        placePhoneEl.value = place.phone || "";
+        placeNoteEl.value = place.note || "";
+        placeSubmitBtn.textContent = "保存修改";
+        placeCancelBtn.hidden = false;
+        placeFormHintEl.textContent = "正在编辑：可选字段留空会清空该字段。";
+        placeNameEl.focus();
+        return;
+      }
+      editingPlaceId = null;
+      placeFormEl.reset();
+      placeSubmitBtn.textContent = "保存地点";
+      placeCancelBtn.hidden = true;
+      placeFormHintEl.textContent = "编辑时留空的可选字段会被清空；地点只保存在本机数据库。";
+    }
+
+    function startEditPlace(place) {
+      hideNavigationError();
+      setPlaceFormMode(place);
+    }
+
+    placeFormEl.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      if (placeSaving) return;
+
+      const name = placeNameEl.value.trim();
+      if (!name) {
+        showNavigationError("请填写地点名称。");
+        return;
+      }
+      if (name.length > 100) {
+        showNavigationError("地点名称最多 100 个字符。");
+        return;
+      }
+
+      const category = placeCategoryEl.value;
+      if (NAVIGATION_CATEGORIES.indexOf(category) === -1) {
+        showNavigationError("请选择地点类别。");
+        return;
+      }
+
+      const address = placeAddressEl.value.trim();
+      if (address.length > 200) {
+        showNavigationError("地址最多 200 个字符。");
+        return;
+      }
+      const phone = placePhoneEl.value.trim();
+      if (phone.length > 50) {
+        showNavigationError("电话最多 50 个字符。");
+        return;
+      }
+      const note = placeNoteEl.value.trim();
+      if (note.length > 200) {
+        showNavigationError("备注最多 200 个字符。");
+        return;
+      }
+
+      // 新增时空字符串等同未填写；编辑时空字符串表示清空该字段，
+      // 与后端 PUT 的约定保持一致
+      const payload = {
+        name: name,
+        category: category,
+        address: address,
+        phone: phone,
+        note: note,
+      };
+
+      placeSaving = true;
+      placeSubmitBtn.disabled = true;
+      hideNavigationError();
+      try {
+        if (editingPlaceId === null) {
+          await requestJSON("/api/navigation/places", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        } else {
+          await requestJSON(
+            "/api/navigation/places/" + encodeURIComponent(editingPlaceId),
+            {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            }
+          );
+        }
+        setPlaceFormMode(null);
+        // 保存成功后重新请求列表，不使用前端临时数据
+        await loadPlaces();
+      } catch (err) {
+        // 直接展示后端返回的中文错误，绝不假装保存成功
+        showNavigationError(err.message || "保存失败，请稍后再试。");
+      } finally {
+        placeSaving = false;
+        placeSubmitBtn.disabled = false;
+      }
+    });
+
+    placeCancelBtn.addEventListener("click", function () {
+      setPlaceFormMode(null);
+      hideNavigationError();
+    });
+
+    async function deletePlace(place) {
+      if (placeActing) return;
+      const label = place.name || "该地点";
+      if (!confirm("确定删除「" + label + "」吗？删除后无法恢复。")) {
+        return;
+      }
+      placeActing = true;
+      hideNavigationError();
+      try {
+        await requestJSON(
+          "/api/navigation/places/" + encodeURIComponent(place.id),
+          { method: "DELETE" }
+        );
+        // 删除的正是正在编辑的地点时，退出编辑模式
+        if (editingPlaceId !== null && String(editingPlaceId) === String(place.id)) {
+          setPlaceFormMode(null);
+        }
+        // 删除接口不返回新列表，必须重新 GET
+        await loadPlaces();
+      } catch (err) {
+        showNavigationError(err.message || "删除失败，请稍后再试。");
+      } finally {
+        placeActing = false;
+      }
+    }
+
+    async function loadPlaces() {
+      if (placeLoading) return;
+      placeLoading = true;
+      hideNavigationError();
+
+      const keyword = placeSearchEl.value.trim();
+      const category = placeFilterEl.value;
+      const params = new URLSearchParams();
+      params.set("limit", String(NAVIGATION_LIST_LIMIT));
+      if (keyword) params.set("keyword", keyword);
+      if (category) params.set("category", category);
+
+      try {
+        const data = await requestJSON(
+          "/api/navigation/places?" + params.toString()
+        );
+        renderPlaces(data.places || []);
+      } catch (err) {
+        showListFailure(placeListEl, "地点列表加载失败，请稍后重试。");
+        showNavigationError(err.message);
+      } finally {
+        placeLoading = false;
+      }
+    }
+
+    async function loadNavigationPanel() {
+      hideNavigationError();
+      // 只加载本机保存的地点；高德搜索必须由用户主动点击
+      await loadPlaces();
+    }
+
+    placeSearchBtn.addEventListener("click", loadPlaces);
+    placeResetBtn.addEventListener("click", function () {
+      placeSearchEl.value = "";
+      placeFilterEl.value = "";
+      loadPlaces();
+    });
+    placeFilterEl.addEventListener("change", loadPlaces);
+    // 关键词框回车直接查询，不必移动到按钮
+    placeSearchEl.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        loadPlaces();
+      }
+    });
+    navReloadBtn.addEventListener("click", loadPlaces);
 
     inputEl.focus();
   </script>

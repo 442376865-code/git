@@ -8,7 +8,10 @@
 """
 
 import inspect
+
+import sqlite3
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -346,3 +349,281 @@ class MedicalNavigationIsolationTest(unittest.TestCase):
                 module.db.close()
             files = sorted(item.name for item in Path(tmp).iterdir())
             self.assertEqual(files, ["navigation.db"])
+
+class MedicalNavigationDBThreadTest(unittest.TestCase):
+    """连接线程参数兼容性：默认行为不变，可按需放开跨线程访问。"""
+
+    def test_check_same_thread_defaults_to_true(self):
+        """构造参数存在且默认 True，原有调用语义不变。"""
+        params = inspect.signature(MedicalNavigationDB.__init__).parameters
+        self.assertIn("check_same_thread", params)
+        self.assertIs(params["check_same_thread"].default, True)
+
+    def test_positional_db_path_still_supported(self):
+        """只传路径的位置参数写法仍然可用。"""
+        db = MedicalNavigationDB(":memory:")
+        try:
+            db.initialize()
+            self.assertEqual(db.list_places(), [])
+        finally:
+            db.close()
+
+    def test_child_thread_allowed_when_check_same_thread_false(self):
+        """传 False 后子线程可以读写同一连接。"""
+        db = MedicalNavigationDB(db_path=":memory:", check_same_thread=False)
+        db.initialize()
+        db.create_place("市中心医院", category="医院")
+        errors = []
+        names = []
+
+        def worker():
+            try:
+                names.extend(place["name"] for place in db.list_places())
+            except Exception as exc:  # 测试里显式收集异常，便于断言
+                errors.append(exc)
+
+        thread = threading.Thread(target=worker)
+        thread.start()
+        thread.join()
+        try:
+            self.assertEqual(errors, [])
+            self.assertEqual(names, ["市中心医院"])
+        finally:
+            db.close()
+
+    def test_child_thread_blocked_by_default(self):
+        """默认 True 时子线程访问抛 ProgrammingError，与 sqlite3 原生行为一致。"""
+        db = MedicalNavigationDB(db_path=":memory:")
+        db.initialize()
+        errors = []
+
+        def worker():
+            try:
+                db.list_places()
+            except sqlite3.ProgrammingError as exc:
+                errors.append(exc)
+
+        thread = threading.Thread(target=worker)
+        thread.start()
+        thread.join()
+        try:
+            self.assertEqual(len(errors), 1)
+        finally:
+            db.close()
+
+
+class MedicalNavigationDBUpdateTest(unittest.TestCase):
+    """手动地点编辑：成功、缺失、非法输入与数据保全。"""
+
+    def setUp(self):
+        self.db = MedicalNavigationDB(db_path=":memory:")
+        self.db.initialize()
+        self.addCleanup(self.db.close)
+        self.place_id = self.db.create_place(
+            "市中心医院",
+            category="医院",
+            address="人民路 8 号",
+            phone="0571-12345678",
+            note="门诊楼三楼",
+        )
+
+    def test_update_returns_true_and_writes_new_values(self):
+        """同时修改名称、类型、地址、电话、备注。"""
+        ok = self.db.update_place(
+            self.place_id,
+            name="第一人民医院",
+            category="医院",
+            address="解放路 1 号",
+            phone="0571-87654321",
+            note="急诊 24 小时",
+        )
+        self.assertTrue(ok)
+        place = self.db.get_place(self.place_id)
+        self.assertEqual(place["name"], "第一人民医院")
+        self.assertEqual(place["address"], "解放路 1 号")
+        self.assertEqual(place["phone"], "0571-87654321")
+        self.assertEqual(place["note"], "急诊 24 小时")
+
+    def test_update_only_given_field_keeps_others(self):
+        """只改电话时，其他字段保持原值。"""
+        self.assertTrue(self.db.update_place(self.place_id, phone="120"))
+        place = self.db.get_place(self.place_id)
+        self.assertEqual(place["phone"], "120")
+        self.assertEqual(place["name"], "市中心医院")
+        self.assertEqual(place["category"], "医院")
+        self.assertEqual(place["address"], "人民路 8 号")
+        self.assertEqual(place["note"], "门诊楼三楼")
+
+    def test_update_empty_string_clears_optional_field(self):
+        """可选字段传空字符串表示清空。"""
+        self.assertTrue(self.db.update_place(self.place_id, address="", note="   "))
+        place = self.db.get_place(self.place_id)
+        self.assertIsNone(place["address"])
+        self.assertIsNone(place["note"])
+
+    def test_update_missing_place_returns_false(self):
+        """不存在的编号返回 False。"""
+        self.assertFalse(self.db.update_place(999, name="不存在的医院"))
+
+    def test_update_without_fields_returns_false(self):
+        """不传任何字段时返回 False，且不改变原有记录。"""
+        before = self.db.get_place(self.place_id)
+        self.assertFalse(self.db.update_place(self.place_id))
+        after = self.db.get_place(self.place_id)
+        self.assertEqual(before, after)
+
+    def test_update_invalid_category_keeps_original_data(self):
+        """非法类型抛 ValueError，原数据保持不变。"""
+        before = self.db.get_place(self.place_id)
+        with self.assertRaises(ValueError):
+            self.db.update_place(self.place_id, name="新名字", category="超市")
+        self.assertEqual(self.db.get_place(self.place_id), before)
+
+    def test_update_blank_name_keeps_original_data(self):
+        """名称为空白抛 ValueError，原数据保持不变。"""
+        before = self.db.get_place(self.place_id)
+        with self.assertRaises(ValueError):
+            self.db.update_place(self.place_id, name="   ")
+        self.assertEqual(self.db.get_place(self.place_id), before)
+
+    def test_update_name_is_stripped(self):
+        """名称前后空格会被去掉。"""
+        self.assertTrue(self.db.update_place(self.place_id, name="  中心医院  "))
+        self.assertEqual(self.db.get_place(self.place_id)["name"], "中心医院")
+
+    def test_update_refreshes_updated_at_format(self):
+        """更新后 updated_at 仍是标准时间格式。"""
+        self.assertTrue(self.db.update_place(self.place_id, phone="120"))
+        updated_at = self.db.get_place(self.place_id)["updated_at"]
+        self.assertRegex(updated_at, r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
+
+class MedicalNavigationDBSearchAndFilterTest(unittest.TestCase):
+    """地址搜索、类别过滤与 limit。"""
+
+    def setUp(self):
+        self.db = MedicalNavigationDB(db_path=":memory:")
+        self.db.initialize()
+        self.addCleanup(self.db.close)
+        self.db.create_place("市中心医院", category="医院", address="人民路 8 号")
+        self.db.create_place("社区药房", category="药房", address="解放路 20 号")
+        self.db.create_place("街角诊所", category="诊所", address="人民路 66 号")
+
+    def test_search_matches_address(self):
+        """关键词命中地址时返回对应地点。"""
+        results = self.db.search_places("解放路")
+        self.assertEqual([place["name"] for place in results], ["社区药房"])
+
+    def test_search_matches_name_category_and_address(self):
+        """名称、类型、地址三种匹配都能命中。"""
+        self.assertEqual(
+            [p["name"] for p in self.db.search_places("市中心")],
+            ["市中心医院"],
+        )
+        self.assertEqual([p["name"] for p in self.db.search_places("诊所")], ["街角诊所"])
+        self.assertEqual(
+            sorted(p["name"] for p in self.db.search_places("人民路")),
+            ["市中心医院", "街角诊所"],
+        )
+
+    def test_search_keeps_empty_keyword_behaviour(self):
+        """空关键词仍返回空列表，不泄露全部数据。"""
+        self.assertEqual(self.db.search_places(""), [])
+        self.assertEqual(self.db.search_places(None), [])
+
+    def test_list_filter_by_category(self):
+        """按类型过滤只返回该类型。"""
+        names = [p["name"] for p in self.db.list_places(category="医院")]
+        self.assertEqual(names, ["市中心医院"])
+
+    def test_list_filter_by_category_without_data_returns_empty(self):
+        """支持范围内但无数据的类型返回空列表。"""
+        self.assertEqual(self.db.list_places(category="卫生院"), [])
+
+    def test_list_invalid_category_raises(self):
+        """不在 CATEGORIES 中的类型抛 ValueError。"""
+        with self.assertRaises(ValueError):
+            self.db.list_places(category="超市")
+
+    def test_list_limit(self):
+        """limit 只返回前 N 条。"""
+        names = [p["name"] for p in self.db.list_places(limit=2)]
+        self.assertEqual(names, ["市中心医院", "社区药房"])
+
+    def test_list_limit_zero_returns_empty(self):
+        """limit=0 返回空列表。"""
+        self.assertEqual(self.db.list_places(limit=0), [])
+
+    def test_list_limit_and_category_combined(self):
+        """类型过滤与 limit 可以同时使用。"""
+        self.db.create_place("第二医院", category="医院")
+        names = [p["name"] for p in self.db.list_places(category="医院", limit=1)]
+        self.assertEqual(names, ["市中心医院"])
+
+    def test_list_negative_limit_raises(self):
+        """负数 limit 抛 ValueError。"""
+        with self.assertRaises(ValueError):
+            self.db.list_places(limit=-1)
+
+    def test_list_non_integer_limit_raises(self):
+        """字符串与布尔值都不能当 limit。"""
+        for value in ("3", True, 2.5):
+            with self.subTest(limit=value):
+                with self.assertRaises(ValueError):
+                    self.db.list_places(limit=value)
+
+    def test_list_without_arguments_returns_all(self):
+        """无参数调用与旧行为一致。"""
+        self.assertEqual(len(self.db.list_places()), 3)
+
+
+class MedicalNavigationDBSqlSafetyTest(unittest.TestCase):
+    """新增的搜索与编辑同样使用参数化 SQL。"""
+
+    def setUp(self):
+        self.db = MedicalNavigationDB(db_path=":memory:")
+        self.db.initialize()
+        self.addCleanup(self.db.close)
+
+    def test_search_payload_is_treated_as_plain_text(self):
+        """搜索框注入不会删表。"""
+        self.db.create_place("市中心医院", category="医院")
+        payload = "'; DROP TABLE navigation_places; --"
+        self.assertEqual(self.db.search_places(payload), [])
+        self.assertEqual(len(self.db.list_places()), 1)
+
+    def test_update_payload_is_stored_as_plain_text(self):
+        """编辑时注入的文本原样保存，表仍可用。"""
+        place_id = self.db.create_place("甲医院", category="医院")
+        payload = "'; DROP TABLE navigation_places; --"
+        self.assertTrue(self.db.update_place(place_id, name=payload, note=payload))
+        place = self.db.get_place(place_id)
+        self.assertEqual(place["name"], payload)
+        self.assertEqual(place["note"], payload)
+        self.assertIsNotNone(self.db.create_place("乙药房", category="药房"))
+        self.assertEqual(len(self.db.list_places()), 2)
+
+    def test_limit_is_rejected_not_interpolated(self):
+        """limit 不是合法整数时直接拒绝，不会拼进 SQL。"""
+        self.db.create_place("甲医院", category="医院")
+        with self.assertRaises(ValueError):
+            self.db.list_places(limit="1; DROP TABLE navigation_places")
+        self.assertEqual(len(self.db.list_places()), 1)
+
+
+class MedicalNavigationDBCloseTest(unittest.TestCase):
+    """连接关闭后的行为。"""
+
+    def test_close_is_idempotent(self):
+        """重复关闭不抛异常。"""
+        db = MedicalNavigationDB(db_path=":memory:")
+        db.initialize()
+        db.close()
+        db.close()
+
+    def test_query_after_close_raises_programming_error(self):
+        """关闭后再查询抛 ProgrammingError，不会静默返回脏数据。"""
+        db = MedicalNavigationDB(db_path=":memory:")
+        db.initialize()
+        db.close()
+        with self.assertRaises(sqlite3.ProgrammingError):
+            db.list_places()
