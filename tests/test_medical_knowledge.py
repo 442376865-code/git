@@ -198,23 +198,44 @@ class MedicalKnowledgeModuleTest(unittest.TestCase):
                     self.assertNotIn(keyword, text)
 
     def test_sources_structured(self):
-        """来源必须为结构化字段；url 可为空，非空时必须是合法链接。"""
+        """来源必须为 7 字段结构；page、url 允许为空，非空链接必须合法。"""
+        required_fields = (
+            "title",
+            "publisher",
+            "edition",
+            "url",
+            "section",
+            "page",
+            "accessed_at",
+        )
         for card in KNOWLEDGE_CARDS:
             self.assertTrue(card["sources"])
             for source in card["sources"]:
                 self.assertIsInstance(source, dict)
                 with self.subTest(source=source.get("title")):
-                    for field in ("title", "publisher", "edition", "url"):
+                    for field in required_fields:
                         self.assertIn(field, source)
-                    self.assertTrue(str(source["title"]).strip())
-                    self.assertTrue(str(source["publisher"]).strip())
-                    self.assertTrue(str(source["edition"]).strip())
+                        self.assertIsInstance(source[field], str)
+                    for field in (
+                        "title",
+                        "publisher",
+                        "edition",
+                        "section",
+                        "accessed_at",
+                    ):
+                        self.assertTrue(source[field].strip())
                     url = source["url"]
-                    self.assertIsInstance(url, str)
                     if url:
                         self.assertTrue(
                             url.startswith("http://") or url.startswith("https://")
                         )
+
+    def test_source_detail_rendered(self):
+        """命中知识卡时必须展示来源章节与核验日期，空字段不显示。"""
+        result = self.module.run("高血压")
+        self.assertIn("章节：高血压的诊断与日常管理", result)
+        self.assertIn("核验日期：2026-11-18", result)
+        self.assertNotIn("页码：", result)
 
 
 if __name__ == "__main__":

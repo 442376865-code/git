@@ -12,6 +12,47 @@ from .tools import default_registry
 
 DEFAULT_SYSTEM_PROMPT = "你是一个乐于助人的 AI 助手，可以调用工具来完成用户任务，请用简体中文回复。"
 
+# 危急症状关键词：命中后直接返回固定急救提示，不进入路由、不调用大模型和业务模块。
+# 采用保守的短语包含匹配，宁可多提醒一次，也不让高危情况进入普通问答。
+EMERGENCY_KEYWORDS = (
+    # 胸痛与胸部压迫
+    "胸痛", "胸口痛", "胸部剧痛", "胸口压迫", "胸部压迫",
+    # 呼吸困难
+    "呼吸困难", "喘不过气", "无法呼吸", "不能呼吸", "没有呼吸",
+    "窒息", "呼吸骤停",
+    # 意识异常
+    "意识不清", "失去意识", "意识丧失", "叫不醒", "昏迷", "晕倒", "晕厥",
+    # 抽搐
+    "抽搐", "惊厥", "抽风",
+    # 出血
+    "大量出血", "大出血", "止不住血", "血止不住", "出血不止", "血流不止",
+    # 疑似卒中
+    "口角歪斜", "嘴歪", "说不出话", "言语不清", "说话不清", "口齿不清",
+    # 单侧肢体无力
+    "单侧肢体无力", "一侧肢体无力", "一侧手脚无力", "半身无力", "半边身子",
+    # 心跳呼吸骤停
+    "心脏骤停", "猝死",
+)
+
+# 命中危急症状时返回的固定提示：只做急救引导，不含诊断、药名或剂量。
+EMERGENCY_REPLY = (
+    "⚠️ 可能存在紧急健康风险。\n\n"
+    "请立即拨打当地急救电话；如果你在中国大陆，请拨打 120。\n\n"
+    "请不要等待 AI 判断或继续在线咨询。尽量让患者保持安全体位，"
+    "不要自行驾车前往医院。请立即寻求现场人员帮助。\n\n"
+    "本系统不能代替急救人员，也不会自动通知医院或紧急联系人。"
+)
+
+
+def _contains_emergency(text):
+    """判断用户输入是否包含危急症状关键词。
+
+    非字符串输入一律返回 False，沿用原有的安全处理方式。
+    """
+    if not isinstance(text, str):
+        return False
+    return any(keyword in text for keyword in EMERGENCY_KEYWORDS)
+
 
 def _default_modules():
     """创建默认的四个业务模块，以模块名作为字典键，便于路由查找。"""
@@ -46,6 +87,15 @@ class Agent:
     def run(self, user_input):
         """主入口：先记录用户消息，再按意图分派到业务模块或通用问答。"""
         self.memory.add("user", user_input)
+        # 危急症状优先拦截：必须在路由和大模型之前，避免高危情况进入普通问答
+        if _contains_emergency(user_input):
+            self.memory.add("assistant", EMERGENCY_REPLY)
+            return EMERGENCY_REPLY
+        # 待确认流程优先于路由：确保「确认清空」「取消」不会落入大模型
+        pending_reply = self._run_pending(user_input)
+        if pending_reply is not None:
+            self.memory.add("assistant", pending_reply)
+            return pending_reply
         module_name = self.router.route(user_input)
         # 非 general 意图：交给对应业务模块处理
         if module_name != Router.GENERAL:
@@ -61,6 +111,17 @@ class Agent:
             return result
         # general 意图继续走原有大模型与工具调用循环
         return self._run_general()
+
+    def _run_pending(self, user_input):
+        """依次询问各模块是否有待确认操作；没有模块接管时返回 None。"""
+        for module in self.modules.values():
+            handler = getattr(module, "handle_pending", None)
+            if not callable(handler):
+                continue
+            reply = handler(user_input)
+            if reply is not None:
+                return reply
+        return None
 
     def _run_general(self):
         """原有通用问答逻辑：调用大模型并处理工具调用循环。"""

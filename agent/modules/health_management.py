@@ -25,6 +25,21 @@ HELP_MESSAGE = (
 # 清空后的提示
 CLEARED_MESSAGE = "健康档案和体重记录已清空。"
 
+# 首次提出清空时的确认提示：不立即删除，等待用户再次确认
+CLEAR_CONFIRM_MESSAGE = (
+    "将清空健康档案和全部体重记录，删除后无法恢复。\n"
+    "如果确认，请回复「确认清空」；回复「取消」可放弃本次操作。"
+)
+
+# 有待确认状态时选择取消
+CLEAR_CANCELLED_MESSAGE = "已取消清空操作，未删除任何数据。"
+
+# 没有待确认状态时输入「确认清空」
+CLEAR_NOTHING_MESSAGE = "当前没有待确认的清空操作，未删除任何数据。"
+
+# 没有待确认状态时输入「取消」或「取消清空」
+CANCEL_NOTHING_MESSAGE = "当前没有待确认的操作，未删除任何数据。"
+
 # 所有记录类回答附带的中性提示
 RECORD_NOTICE = "以上为你录入的日常记录，本模块不做健康评估，也不能替代医生诊疗。"
 
@@ -50,6 +65,10 @@ VIEW_WEIGHT_RE = re.compile(r"查看\s*体重|体重记录|体重历史")
 # 清空档案的表达（注意不能误命中"删除体重记录"）
 CLEAR_RE = re.compile(r"(清除|清空)\s*(健康)?(档案|记录)|删除\s*健康档案")
 
+# 二次确认与取消：必须整句匹配，避免误触发
+CONFIRM_CLEAR_RE = re.compile(r"^确认清空$")
+CANCEL_CLEAR_RE = re.compile(r"^(取消|取消清空)$")
+
 
 class HealthManagementModule(MedicalModule):
     """健康管理模块。"""
@@ -66,6 +85,8 @@ class HealthManagementModule(MedicalModule):
         """
         self.db = HealthDB(db_path)
         self.db.initialize()
+        # 实例级待确认状态：只在当前模块实例（当前会话）内有效，不使用类属性
+        self._pending_clear = False
 
     def run(self, user_input, context=None):
         """识别录入/查看/删除意图并返回中文结果。"""
@@ -75,10 +96,25 @@ class HealthManagementModule(MedicalModule):
 
         text = user_input.strip()
 
-        # 1. 清空档案与体重记录
-        if CLEAR_RE.search(text):
+        # 0. 待确认流程：确认与取消必须先于普通识别处理
+        if CONFIRM_CLEAR_RE.match(text):
+            if not self._pending_clear:
+                return CLEAR_NOTHING_MESSAGE
+            # 先复位状态再删除，避免重复确认导致重复执行
+            self._pending_clear = False
             self.db.clear_all()
             return CLEARED_MESSAGE
+
+        if CANCEL_CLEAR_RE.match(text):
+            if not self._pending_clear:
+                return CANCEL_NOTHING_MESSAGE
+            self._pending_clear = False
+            return CLEAR_CANCELLED_MESSAGE
+
+        # 1. 清空档案与体重记录：首次只登记待确认，不立即删除
+        if CLEAR_RE.search(text):
+            self._pending_clear = True
+            return CLEAR_CONFIRM_MESSAGE
 
         # 2. 按编号删除体重记录
         match = DELETE_WEIGHT_RE.search(text)
@@ -124,6 +160,20 @@ class HealthManagementModule(MedicalModule):
 
         # 6. 无法识别：返回帮助
         return HELP_MESSAGE
+
+    def handle_pending(self, user_input):
+        """供主控在路由前调用的待确认钩子。
+
+        「确认清空」「取消」「取消清空」即使没有待确认状态也由本模块接管，
+        返回固定中文提示，确保不会掉入通用问答而调用大模型；
+        其他输入返回 None，继续走原有路由流程。
+        """
+        if not isinstance(user_input, str):
+            return None
+        text = user_input.strip()
+        if CONFIRM_CLEAR_RE.match(text) or CANCEL_CLEAR_RE.match(text):
+            return self.run(text)
+        return None
 
     def _parse_profile(self, text):
         """解析姓名、性别、出生日期、身高，并校验合理范围与日期。"""

@@ -11,6 +11,7 @@ from unittest import mock
 import agent.main
 from agent.main import Agent
 from agent.modules.base import MedicalModule
+from agent.modules.medical_knowledge import NOT_FOUND_MESSAGE, MedicalKnowledgeModule
 from agent.router import Router
 
 
@@ -107,6 +108,58 @@ class RouterBaselineTest(unittest.TestCase):
                 self.assertEqual(router.route(text), expected)
 
 
+class RouterMedicalFallbackTest(unittest.TestCase):
+    """医学疑似兜底：未收录医学问题进入知识模块，普通闲聊仍走 general。"""
+
+    def setUp(self):
+        self.router = Router()
+
+    def test_unlisted_medical_questions_route_to_knowledge(self):
+        """未收录的医学问题必须交给知识库判断，不能落到通用问答。"""
+        cases = [
+            "帕金森病是什么",
+            "头痛怎么办",
+            "咳嗽怎么办",
+            "肺炎严重吗",
+            "胃炎是什么",
+            "如何预防感染",
+        ]
+        for text in cases:
+            with self.subTest(text=text):
+                self.assertEqual(self.router.route(text), "medical_knowledge")
+
+    def test_known_medical_question_still_routes_to_knowledge(self):
+        """既有明确医学问法不得被兜底改变。"""
+        self.assertEqual(self.router.route("什么是高血压"), "medical_knowledge")
+
+    def test_plain_chat_still_routes_to_general(self):
+        """普通闲聊不含医学词根，必须保持 general。"""
+        cases = [
+            "你好",
+            "今天天气怎么样",
+            "我今天很开心",
+            "你觉得这个电影怎么样",
+            "帮我写一封邮件",
+        ]
+        for text in cases:
+            with self.subTest(text=text):
+                self.assertEqual(self.router.route(text), "general")
+
+    def test_fallback_keeps_business_priority(self):
+        """医学疑似兜底只能排在其他业务规则之后，不能抢走明确意图。"""
+        cases = [
+            ("附近有哪些医院", "medical_navigation"),
+            ("帮我找附近的医院", "medical_navigation"),
+            ("帮我设置服药提醒", "medication"),
+            ("医院开的降压药怎么吃", "medication"),
+            ("建立健康档案", "health_management"),
+            ("清空记录", "health_management"),
+        ]
+        for text, expected in cases:
+            with self.subTest(text=text):
+                self.assertEqual(self.router.route(text), expected)
+
+
 class AgentRoutingTest(unittest.TestCase):
     """主控 Agent 的路由分派、依赖注入与记忆写入。"""
 
@@ -139,7 +192,12 @@ class AgentRoutingTest(unittest.TestCase):
 
     def test_default_modules_registered(self):
         """默认构造时必须注册四个业务模块，且均为 MedicalModule 子类。"""
-        agent = Agent()
+        # 默认构造会把知识库指向正式 data/knowledge.db；
+        # 测试期间临时改为内存库，从调用链上阻断对正式数据库的写入。
+        with mock.patch(
+            "agent.modules.knowledge_db.DEFAULT_DB_PATH", ":memory:"
+        ):
+            agent = Agent()
         self.assertEqual(
             set(agent.modules),
             {"medical_knowledge", "health_management", "medication", "medical_navigation"},
@@ -239,6 +297,37 @@ class AgentRoutingTest(unittest.TestCase):
         self.assertEqual(messages[0]["role"], "user")
         self.assertEqual(messages[1]["role"], "assistant")
         self.assertEqual(messages[1]["content"], "该业务模块暂不可用，请稍后再试。")
+
+
+class MedicalFallbackSafetyTest(unittest.TestCase):
+    """医学安全验证：未收录医学问题必须走知识库，绝不调用大模型。"""
+
+    def _agent(self):
+        """只注入内存知识库，避免测试读写 data/ 下的真实数据库。"""
+        module = MedicalKnowledgeModule(db_path=":memory:")
+        return Agent(modules={"medical_knowledge": module})
+
+    def test_unlisted_questions_never_call_llm(self):
+        """帕金森病、头痛等未收录问题：LLM 调用次数必须为 0。"""
+        cases = ["帕金森病是什么", "头痛怎么办", "咳嗽怎么办", "肺炎严重吗"]
+        for text in cases:
+            with self.subTest(text=text):
+                agent = self._agent()
+                with mock.patch("agent.main.call_llm") as fake_llm:
+                    result = agent.run(text)
+                self.assertEqual(fake_llm.call_count, 0)
+                fake_llm.assert_not_called()
+                self.assertEqual(result, NOT_FOUND_MESSAGE)
+
+    def test_greeting_still_reaches_llm(self):
+        """普通问候仍然允许进入 general 并调用大模型。"""
+        with mock.patch(
+            "agent.main.call_llm",
+            return_value={"role": "assistant", "content": "mock 通用回复"},
+        ) as fake_llm:
+            result = Agent(modules={}).run("你好")
+        self.assertEqual(result, "mock 通用回复")
+        self.assertEqual(fake_llm.call_count, 1)
 
 
 if __name__ == "__main__":

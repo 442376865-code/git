@@ -12,15 +12,22 @@ import sqlite3
 import tempfile
 import unittest
 from datetime import date
+from unittest import mock
 
+from agent.main import Agent, EMERGENCY_REPLY
 from agent.modules.base import MedicalModule
 from agent.modules.health_db import HealthDB
 from agent.modules.health_management import (
+    CANCEL_NOTHING_MESSAGE,
+    CLEAR_CANCELLED_MESSAGE,
+    CLEAR_CONFIRM_MESSAGE,
+    CLEAR_NOTHING_MESSAGE,
     CLEARED_MESSAGE,
     HELP_MESSAGE,
     HealthManagementModule,
     RECORD_NOTICE,
 )
+from agent.router import Router
 
 
 class HealthManagementModuleTest(unittest.TestCase):
@@ -172,11 +179,15 @@ class HealthManagementModuleTest(unittest.TestCase):
             for keyword in ("BMI", "偏瘦", "超重", "肥胖", "正常范围"):
                 self.assertNotIn(keyword, text)
 
-    def test_clear_all(self):
-        """清空后档案与体重记录都为空。"""
+    def test_clear_all_requires_confirmation(self):
+        """清空必须先确认：首次只提示，确认后才删除档案与体重记录。"""
         self.module.run("姓名 张三、身高 175cm")
         self.module.run("体重 70kg")
-        self.assertEqual(self.module.run("清除健康档案"), CLEARED_MESSAGE)
+        self.assertEqual(self.module.run("清除健康档案"), CLEAR_CONFIRM_MESSAGE)
+        # 首次请求不得删除任何数据
+        self.assertEqual(self.module.db.get_profile()["name"], "张三")
+        self.assertEqual(len(self.module.db.list_weights()), 1)
+        self.assertEqual(self.module.run("确认清空"), CLEARED_MESSAGE)
         self.assertEqual(self.module.db.get_profile(), {})
         self.assertEqual(self.module.db.list_weights(), [])
 
@@ -424,6 +435,174 @@ class HealthDBPersistenceAndMigrationTest(unittest.TestCase):
         self.assertNotIn("unknown_field", profile)
         self.assertEqual(profile["name"], "张三")
         db.close()
+
+
+class RecordingModule:
+    """测试替身：只记录 run 调用次数，用于确认其他模块未被触发。"""
+
+    def __init__(self, name):
+        self.name = name
+        self.calls = 0
+
+    def run(self, user_input, context=None):
+        self.calls += 1
+        return "[" + self.name + "]"
+
+
+class HealthClearConfirmationTest(unittest.TestCase):
+    """健康档案清空的二次确认机制。"""
+
+    def setUp(self):
+        self.module = HealthManagementModule(db_path=":memory:")
+        self.module.run("姓名 张三、身高 175cm")
+        self.module.run("体重 70kg")
+
+    def _assert_data_kept(self):
+        """断言档案与体重记录都还在。"""
+        self.assertEqual(self.module.db.get_profile()["name"], "张三")
+        self.assertEqual(len(self.module.db.list_weights()), 1)
+
+    def test_first_request_only_prompts(self):
+        """五种清空表达在首次输入时都只返回确认提示，不删除数据。"""
+        for text in (
+            "清空健康档案",
+            "清除健康档案",
+            "清空档案",
+            "清空记录",
+            "删除健康档案",
+        ):
+            with self.subTest(text=text):
+                self.module._pending_clear = False
+                self.assertEqual(self.module.run(text), CLEAR_CONFIRM_MESSAGE)
+                self._assert_data_kept()
+
+    def test_confirm_with_pending_deletes(self):
+        """有待确认状态时，确认后才删除档案和体重记录。"""
+        self.module.run("清空健康档案")
+        self.assertEqual(self.module.run("确认清空"), CLEARED_MESSAGE)
+        self.assertEqual(self.module.db.get_profile(), {})
+        self.assertEqual(self.module.db.list_weights(), [])
+
+    def test_confirm_without_pending_does_not_delete(self):
+        """没有待确认状态时，单独确认不得删除数据。"""
+        self.assertEqual(self.module.run("确认清空"), CLEAR_NOTHING_MESSAGE)
+        self._assert_data_kept()
+
+    def test_cancel_with_pending_does_not_delete(self):
+        """有待确认状态时取消，只清除状态，不删除数据。"""
+        self.module.run("清空健康档案")
+        self.assertEqual(self.module.run("取消"), CLEAR_CANCELLED_MESSAGE)
+        self._assert_data_kept()
+
+    def test_cancel_without_pending_does_not_delete(self):
+        """没有待确认状态时取消，返回固定提示且不删除数据。"""
+        self.assertEqual(self.module.run("取消"), CANCEL_NOTHING_MESSAGE)
+        self.assertEqual(self.module.run("取消清空"), CANCEL_NOTHING_MESSAGE)
+        self._assert_data_kept()
+
+    def test_cancel_then_confirm_does_not_delete(self):
+        """取消后再次确认，不得删除数据。"""
+        self.module.run("清空健康档案")
+        self.module.run("取消")
+        self.assertEqual(self.module.run("确认清空"), CLEAR_NOTHING_MESSAGE)
+        self._assert_data_kept()
+
+    def test_two_instances_isolated(self):
+        """两个模块实例的待确认状态互不影响。"""
+        other = HealthManagementModule(db_path=":memory:")
+        other.run("姓名 李四")
+        self.module.run("清空健康档案")
+        self.assertTrue(self.module._pending_clear)
+        self.assertFalse(other._pending_clear)
+        self.assertEqual(other.run("确认清空"), CLEAR_NOTHING_MESSAGE)
+        self.assertEqual(other.db.get_profile()["name"], "李四")
+
+    def test_other_session_confirm_does_not_delete(self):
+        """一个会话发起清空，另一个会话确认不得删除发起会话的数据。"""
+        session_a = HealthManagementModule(db_path=":memory:")
+        session_b = HealthManagementModule(db_path=":memory:")
+        session_a.run("姓名 张三")
+        session_b.run("姓名 李四")
+        session_a.run("清空健康档案")
+        self.assertEqual(session_b.run("确认清空"), CLEAR_NOTHING_MESSAGE)
+        self.assertEqual(session_a.db.get_profile()["name"], "张三")
+        self.assertEqual(session_b.db.get_profile()["name"], "李四")
+        # 只有发起会话自己确认才生效
+        self.assertEqual(session_a.run("确认清空"), CLEARED_MESSAGE)
+        self.assertEqual(session_a.db.get_profile(), {})
+        self.assertEqual(session_b.db.get_profile()["name"], "李四")
+
+
+class HealthClearAgentIntegrationTest(unittest.TestCase):
+    """主控 Agent 层：确认流程不调用大模型，也不影响其他模块。"""
+
+    def _agent(self, extra_modules=None):
+        modules = {"health_management": HealthManagementModule(db_path=":memory:")}
+        if extra_modules:
+            modules.update(extra_modules)
+        return Agent(modules=modules), modules
+
+    def test_confirm_flow_does_not_call_llm(self):
+        """清空与确认流程全程不调用大模型。"""
+        agent, _ = self._agent()
+        with mock.patch(
+            "agent.main.call_llm",
+            return_value={"role": "assistant", "content": "mock"},
+        ) as fake:
+            self.assertEqual(agent.run("清空健康档案"), CLEAR_CONFIRM_MESSAGE)
+            self.assertEqual(agent.run("确认清空"), CLEARED_MESSAGE)
+            fake.assert_not_called()
+
+    def test_confirm_or_cancel_without_pending_no_llm(self):
+        """没有待确认状态时，确认和取消也不得掉入大模型。"""
+        agent, _ = self._agent()
+        with mock.patch(
+            "agent.main.call_llm",
+            return_value={"role": "assistant", "content": "mock"},
+        ) as fake:
+            self.assertEqual(agent.run("确认清空"), CLEAR_NOTHING_MESSAGE)
+            self.assertEqual(agent.run("取消"), CANCEL_NOTHING_MESSAGE)
+            fake.assert_not_called()
+
+    def test_clear_does_not_touch_other_modules(self):
+        """清空确认流程只调用健康管理模块。"""
+        others = {
+            name: RecordingModule(name)
+            for name in ("medical_knowledge", "medication", "medical_navigation")
+        }
+        agent, _ = self._agent(others)
+        agent.run("清空健康档案")
+        agent.run("确认清空")
+        self.assertTrue(all(module.calls == 0 for module in others.values()))
+
+    def test_qingkong_jilu_routes_to_health(self):
+        """「清空记录」必须进入健康管理模块，而不是通用问答。"""
+        self.assertEqual(Router().route("清空记录"), "health_management")
+        agent, _ = self._agent()
+        with mock.patch(
+            "agent.main.call_llm",
+            return_value={"role": "assistant", "content": "mock"},
+        ) as fake:
+            self.assertEqual(agent.run("清空记录"), CLEAR_CONFIRM_MESSAGE)
+            fake.assert_not_called()
+
+    def test_normal_health_still_works(self):
+        """普通健康管理功能不受二次确认影响。"""
+        agent, _ = self._agent()
+        self.assertIn("已更新健康档案", agent.run("姓名 张三、身高 175cm"))
+        self.assertIn("张三", agent.run("查看健康档案"))
+        self.assertIn("已新增体重记录", agent.run("体重 70kg"))
+        self.assertIn("已删除", agent.run("删除体重记录 1"))
+
+    def test_emergency_interception_unchanged(self):
+        """危急症状拦截仍是第一优先级，且不调用大模型。"""
+        agent, _ = self._agent()
+        with mock.patch(
+            "agent.main.call_llm",
+            return_value={"role": "assistant", "content": "mock"},
+        ) as fake:
+            self.assertEqual(agent.run("我胸痛怎么办"), EMERGENCY_REPLY)
+            fake.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -163,3 +163,33 @@ class MedicationDB:
             (limit,),
         ).fetchall()
         return [dict(row) for row in rows]
+    def delete_plan(self, plan_id):
+        """删除指定用药计划及其关联服药记录，返回是否删除成功。
+
+        当前外键没有配置级联删除，所以在同一事务里先删服药记录、再删计划；
+        计划不存在时返回 False，数据库异常时回滚并返回 False，均不抛异常。
+        """
+        try:
+            self._conn.execute(
+                "DELETE FROM medication_logs WHERE plan_id = ?", (plan_id,)
+            )
+            cursor = self._conn.execute(
+                "DELETE FROM medication_plans WHERE id = ?", (plan_id,)
+            )
+            self._conn.commit()
+            return cursor.rowcount > 0
+        except sqlite3.Error:
+            self._conn.rollback()
+            return False
+
+    def delete_log(self, log_id):
+        """删除指定服药记录，返回是否删除成功；不存在或异常时返回 False。"""
+        try:
+            cursor = self._conn.execute(
+                "DELETE FROM medication_logs WHERE id = ?", (log_id,)
+            )
+            self._conn.commit()
+            return cursor.rowcount > 0
+        except sqlite3.Error:
+            self._conn.rollback()
+            return False

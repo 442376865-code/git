@@ -20,6 +20,8 @@ HELP_MESSAGE = (
     "新增计划示例：新增用药计划，药名 XX，医嘱用法 XX，时间 08:00,20:00。\n"
     "查看计划：查看用药计划。\n"
     "停用计划：停用用药计划 1。\n"
+    "删除计划：删除用药计划 1。\n"
+    "删除记录：删除服药记录 2。\n"
     "记录服药：记录服药 计划编号 1 时间 2026-11-01 08:00 备注 早饭后。\n"
     "查看记录：查看服药记录。"
 )
@@ -52,6 +54,17 @@ TAKEN_AT_RE = re.compile(r"(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})")
 # 停用计划识别规则
 STOP_RE = re.compile(
     r"(?:停用|停止)\s*(?:用药)?计划\s*(?:编号|id|#)?\s*[:：]?\s*(\d+)"
+)
+
+# 删除计划识别规则："删除用药计划 1" / "删除服药计划 1"
+# 编号允许为空或任意 token，由业务层统一校验是否为正整数
+DELETE_PLAN_RE = re.compile(
+    r"(?:删除|移除)\s*(?:用药|服药)\s*计划\s*(?:编号|id|#)?\s*[:：]?\s*([^\s，,。;；]*)"
+)
+
+# 删除服药记录识别规则："删除服药记录 2"
+DELETE_LOG_RE = re.compile(
+    r"(?:删除|移除)\s*服药记录\s*(?:编号|id|#)?\s*[:：]?\s*([^\s，,。;；]*)"
 )
 
 # 查看意图
@@ -88,39 +101,49 @@ class MedicationModule(MedicalModule):
 
         text = user_input.strip()
 
-        # 1. 记录服药（必须带计划编号）
+        # 1. 删除用药计划（必须放在记录服药之前，避免"删除服药记录"被误判）
+        delete_plan_match = DELETE_PLAN_RE.search(text)
+        if delete_plan_match:
+            return self._handle_delete_plan(delete_plan_match.group(1).strip())
+
+        # 2. 删除服药记录（同样必须放在记录服药之前）
+        delete_log_match = DELETE_LOG_RE.search(text)
+        if delete_log_match:
+            return self._handle_delete_log(delete_log_match.group(1).strip())
+
+        # 3. 记录服药（必须带计划编号）
         log_match = LOG_RE.search(text)
         if log_match:
             return self._handle_log(int(log_match.group(1)), text)
 
-        # 2. 停用计划
+        # 4. 停用计划
         stop_match = STOP_RE.search(text)
         if stop_match:
             return self._handle_stop(int(stop_match.group(1)))
 
-        # 3. 新增计划（需要药名与医嘱用法）
+        # 5. 新增计划（需要药名与医嘱用法）
         name_match = PLAN_NAME_RE.search(text)
         instruction_match = PLAN_INSTRUCTION_RE.search(text)
         if name_match or instruction_match or "新增用药计划" in text:
             return self._handle_create_plan(text, name_match, instruction_match)
 
-        # 4. 查看服药记录
+        # 6. 查看服药记录
         if LOG_VIEW_RE.search(text):
             return self._format_logs(self.db.list_logs(10))
 
-        # 5. 查看用药计划
+        # 7. 查看用药计划
         if PLAN_VIEW_RE.search(text):
             return self._format_plans(self.db.list_plans())
 
-        # 6. 用药咨询：固定回复，不写库
+        # 8. 用药咨询：固定回复，不写库
         if CONSULT_RE.search(text):
             return CONSULT_REPLY
 
-        # 7. 提醒请求：固定说明，不创建计划
+        # 9. 提醒请求：固定说明，不创建计划
         if "提醒" in text:
             return REMINDER_REPLY
 
-        # 8. 无法识别
+        # 10. 无法识别
         return HELP_MESSAGE
 
     def _handle_create_plan(self, text, name_match, instruction_match):
@@ -174,6 +197,42 @@ class MedicationModule(MedicalModule):
         return f"已停用编号 {plan_id} 的用药计划。\n" + self._format_plans(
             self.db.list_plans()
         )
+
+    def _handle_delete_plan(self, raw_id):
+        """删除指定计划及其关联服药记录；编号非法或不存在时给出明确提示。"""
+        if not raw_id:
+            return "请提供要删除的用药计划编号，例如：删除用药计划 1。"
+        plan_id = self._parse_positive_id(raw_id)
+        if plan_id is None:
+            return "用药计划编号必须是正整数，例如：删除用药计划 1。"
+        if not self.db.delete_plan(plan_id):
+            return f"未找到编号为 {plan_id} 的用药计划。"
+        return (
+            f"已删除编号 {plan_id} 的用药计划及其关联服药记录。\n"
+            + self._format_plans(self.db.list_plans())
+        )
+
+    def _handle_delete_log(self, raw_id):
+        """删除指定服药记录；编号非法或不存在时给出明确提示。"""
+        if not raw_id:
+            return "请提供要删除的服药记录编号，例如：删除服药记录 2。"
+        log_id = self._parse_positive_id(raw_id)
+        if log_id is None:
+            return "服药记录编号必须是正整数，例如：删除服药记录 2。"
+        if not self.db.delete_log(log_id):
+            return f"未找到编号为 {log_id} 的服药记录。"
+        return (
+            f"已删除编号 {log_id} 的服药记录。\n"
+            + self._format_logs(self.db.list_logs(10))
+        )
+
+    @staticmethod
+    def _parse_positive_id(raw_id):
+        """把编号文本解析为正整数；空值、非数字、0 和负数一律返回 None。"""
+        if not raw_id or not raw_id.isdigit():
+            return None
+        value = int(raw_id)
+        return value if value > 0 else None
 
     def _handle_log(self, plan_id, text):
         """校验计划有效性与服药时间后写一条服药记录。"""
